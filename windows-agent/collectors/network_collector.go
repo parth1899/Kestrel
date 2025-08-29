@@ -7,18 +7,19 @@ import (
 	"windows-agent/models"
 	"windows-agent/utils"
 
+	"github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/process"
 	"github.com/sirupsen/logrus"
 )
 
 // NetworkCollector collects network-related telemetry data
 type NetworkCollector struct {
-	agentID string
-	logger  *logrus.Logger
-	// Track recent connections to avoid duplicates
+	agentID           string
+	logger            *logrus.Logger
 	recentConnections map[string]time.Time
 }
 
-// NetworkConnection represents a simplified network connection
+// NetworkConnection represents a network connection
 type NetworkConnection struct {
 	LocalIP    string
 	LocalPort  int
@@ -26,6 +27,8 @@ type NetworkConnection struct {
 	RemotePort int
 	Protocol   string
 	PID        int32
+	BytesSent  uint64
+	BytesRecv  uint64
 }
 
 // NewNetworkCollector creates a new network collector
@@ -37,41 +40,77 @@ func NewNetworkCollector(agentID string, logger *logrus.Logger) *NetworkCollecto
 	}
 }
 
-// CollectNetworkEvents collects current network connections
+// CollectNetworkEvents collects current network connections using gopsutil
 func (nc *NetworkCollector) CollectNetworkEvents() ([]models.NetworkEvent, error) {
 	var events []models.NetworkEvent
 	now := time.Now()
 
-	// For now, create some sample network events
-	// In production, you'd use gopsutil to get real connections
-	sampleConnections := []NetworkConnection{
-		{LocalIP: "127.0.0.1", LocalPort: 8080, RemoteIP: "0.0.0.0", RemotePort: 0, Protocol: "TCP", PID: 1234},
-		{LocalIP: "192.168.1.100", LocalPort: 443, RemoteIP: "8.8.8.8", RemotePort: 53, Protocol: "UDP", PID: 5678},
+	// Fetch all TCP and UDP connections
+	conns, err := net.Connections("all")
+	if err != nil {
+		nc.logger.Errorf("Failed to collect network connections: %v", err)
+		return nil, fmt.Errorf("failed to get network connections: %v", err)
 	}
 
-	for _, conn := range sampleConnections {
-		// Skip if we've seen this connection recently
-		connKey := nc.generateConnectionKey(conn)
+	for _, conn := range conns {
+		// Skip connections without a valid PID or in closed state
+		if conn.Pid == 0 || conn.Status == "CLOSE" || conn.Status == "NONE" {
+			continue
+		}
+
+		// Create a connection struct
+		ncConn := NetworkConnection{
+			LocalIP:    conn.Laddr.IP,
+			LocalPort:  int(conn.Laddr.Port),
+			RemoteIP:   conn.Raddr.IP,
+			RemotePort: int(conn.Raddr.Port),
+			Protocol:   connTypeToString(conn.Type), // Convert uint32 to string
+			PID:        conn.Pid,
+		}
+
+		// Get byte counters (if available)
+		if counters, err := nc.getConnectionCounters(conn); err == nil {
+			ncConn.BytesSent = counters.BytesSent
+			ncConn.BytesRecv = counters.BytesRecv
+		}
+
+		// Skip if recently seen
+		connKey := nc.generateConnectionKey(ncConn)
 		if nc.isRecentlySeen(connKey, now) {
 			continue
 		}
 
-		// Create network event
-		event := nc.createNetworkEvent(conn, now)
+		// Create and store network event
+		event := nc.createNetworkEvent(ncConn, now)
 		events = append(events, *event)
 		nc.recentConnections[connKey] = now
 	}
+
+	// Clean up old connections
+	nc.CleanupOldConnections()
 
 	nc.logger.Infof("Collected %d network events", len(events))
 	return events, nil
 }
 
+// connTypeToString converts connection type uint32 to string
+func connTypeToString(connType uint32) string {
+	switch connType {
+	case 1: // SOCK_STREAM (TCP)
+		return "TCP"
+	case 2: // SOCK_DGRAM (UDP)
+		return "UDP"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // generateConnectionKey creates a unique key for a connection
 func (nc *NetworkCollector) generateConnectionKey(conn NetworkConnection) string {
-	return fmt.Sprintf("%s:%d-%s:%d-%s",
+	return fmt.Sprintf("%s:%d-%s:%d-%s-%d",
 		conn.LocalIP, conn.LocalPort,
 		conn.RemoteIP, conn.RemotePort,
-		conn.Protocol)
+		conn.Protocol, conn.PID)
 }
 
 // isRecentlySeen checks if a connection was recently processed
@@ -85,21 +124,23 @@ func (nc *NetworkCollector) isRecentlySeen(connKey string, currentTime time.Time
 // createNetworkEvent creates a NetworkEvent from connection information
 func (nc *NetworkCollector) createNetworkEvent(conn NetworkConnection, timestamp time.Time) *models.NetworkEvent {
 	event := &models.NetworkEvent{
-		ID:           utils.GenerateUUID(),
-		AgentID:      nc.agentID,
-		LocalIP:      conn.LocalIP,
-		LocalPort:    conn.LocalPort,
-		RemoteIP:     conn.RemoteIP,
-		RemotePort:   conn.RemotePort,
-		Protocol:     conn.Protocol,
-		EventType:    "monitor",
-		Timestamp:    timestamp,
-		Severity:     nc.determineNetworkSeverity(conn),
-		ConnectionID: fmt.Sprintf("%s-%s-%d", conn.LocalIP, conn.RemoteIP, conn.LocalPort),
-		CreatedAt:    timestamp,
+		ID:            utils.GenerateUUID(),
+		AgentID:       nc.agentID,
+		LocalIP:       conn.LocalIP,
+		LocalPort:     conn.LocalPort,
+		RemoteIP:      conn.RemoteIP,
+		RemotePort:    conn.RemotePort,
+		Protocol:      conn.Protocol,
+		EventType:     "connect", // Default to connect for active connections
+		Timestamp:     timestamp,
+		Severity:      nc.determineNetworkSeverity(conn),
+		BytesSent:     int64(conn.BytesSent),
+		BytesReceived: int64(conn.BytesRecv),
+		ConnectionID:  fmt.Sprintf("%s:%d-%s:%d-%s", conn.LocalIP, conn.LocalPort, conn.RemoteIP, conn.RemotePort, conn.Protocol),
+		CreatedAt:     timestamp,
 	}
 
-	// Try to get process information for the connection
+	// Get process information for the connection
 	if conn.PID > 0 {
 		event.ProcessID = int(conn.PID)
 		if processName, err := nc.getProcessName(conn.PID); err == nil {
@@ -112,7 +153,7 @@ func (nc *NetworkCollector) createNetworkEvent(conn NetworkConnection, timestamp
 
 // determineNetworkSeverity determines the severity level of a network connection
 func (nc *NetworkCollector) determineNetworkSeverity(conn NetworkConnection) string {
-	// High severity - suspicious remote IPs
+	// High severity - suspicious remote IPs (expand with threat intel later)
 	suspiciousIPs := []string{
 		"0.0.0.0", "127.0.0.1", "::1", // Localhost
 		"192.168.1.1", "10.0.0.1", // Common router IPs
@@ -132,8 +173,13 @@ func (nc *NetworkCollector) determineNetworkSeverity(conn NetworkConnection) str
 		}
 	}
 
-	// High severity - very high port numbers (potential malware)
+	// Medium severity - high port numbers (potential malware)
 	if conn.RemotePort > 49152 {
+		return "medium"
+	}
+
+	// Medium severity - high data transfer (potential exfiltration)
+	if conn.BytesSent > 10*1024*1024 || conn.BytesRecv > 10*1024*1024 { // 10MB threshold
 		return "medium"
 	}
 
@@ -142,15 +188,44 @@ func (nc *NetworkCollector) determineNetworkSeverity(conn NetworkConnection) str
 
 // getProcessName gets the process name for a given PID
 func (nc *NetworkCollector) getProcessName(pid int32) (string, error) {
-	// This is a simplified version - in production you'd use gopsutil
-	return fmt.Sprintf("process_%d", pid), nil
+	proc, err := process.NewProcess(pid)
+	if err != nil {
+		return "", fmt.Errorf("failed to get process %d: %v", pid, err)
+	}
+	name, err := proc.Name()
+	if err != nil {
+		return "", fmt.Errorf("failed to get process name for PID %d: %v", pid, err)
+	}
+	return name, nil
+}
+
+// getConnectionCounters retrieves sent/received byte counts for a connection
+func (nc *NetworkCollector) getConnectionCounters(conn net.ConnectionStat) (net.IOCountersStat, error) {
+	// Note: gopsutil/net doesn't provide per-connection bytes directly
+	// Approximate by mapping to interface counters (improve with per-socket stats if available)
+	counters, err := net.IOCounters(false)
+	if err != nil {
+		return net.IOCountersStat{}, err
+	}
+	if len(counters) > 0 {
+		return counters[0], nil // Use first interface as a proxy
+	}
+	return net.IOCountersStat{}, fmt.Errorf("no interface counters available")
 }
 
 // GetConnectionCount returns the number of active connections
 func (nc *NetworkCollector) GetConnectionCount() (int, error) {
-	// For now, return a sample count
-	// In production, you'd get real connection count
-	return 5, nil
+	conns, err := net.Connections("all")
+	if err != nil {
+		return 0, fmt.Errorf("failed to get connection count: %v", err)
+	}
+	count := 0
+	for _, conn := range conns {
+		if conn.Pid != 0 && conn.Status != "CLOSE" && conn.Status != "NONE" {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // CleanupOldConnections removes old entries from the recent connections map
@@ -166,8 +241,34 @@ func (nc *NetworkCollector) CleanupOldConnections() {
 // DetectSuspiciousConnections identifies potentially suspicious network activity
 func (nc *NetworkCollector) DetectSuspiciousConnections() ([]models.NetworkEvent, error) {
 	var suspiciousEvents []models.NetworkEvent
+	conns, err := net.Connections("all")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connections for analysis: %v", err)
+	}
 
-	// For now, return empty list
-	// In production, you'd analyze real connections
+	now := time.Now()
+	for _, conn := range conns {
+		if conn.Pid == 0 || conn.Status == "CLOSE" || conn.Status != "ESTABLISHED" {
+			continue
+		}
+
+		ncConn := NetworkConnection{
+			LocalIP:    conn.Laddr.IP,
+			LocalPort:  int(conn.Laddr.Port),
+			RemoteIP:   conn.Raddr.IP,
+			RemotePort: int(conn.Raddr.Port),
+			Protocol:   connTypeToString(conn.Type),
+			PID:        conn.Pid,
+		}
+
+		// Check if connection is suspicious (e.g., high ports or high data)
+		severity := nc.determineNetworkSeverity(ncConn)
+		if severity == "medium" || severity == "high" {
+			event := nc.createNetworkEvent(ncConn, now)
+			suspiciousEvents = append(suspiciousEvents, *event)
+		}
+	}
+
+	nc.logger.Infof("Detected %d suspicious network events", len(suspiciousEvents))
 	return suspiciousEvents, nil
 }
