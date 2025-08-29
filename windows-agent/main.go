@@ -21,6 +21,8 @@ func main() {
 		FullTimestamp: true,
 	})
 
+	printStartupBanner()
+
 	logger.Info("Starting Windows Security Agent...")
 
 	// Load configuration
@@ -83,33 +85,33 @@ func main() {
 }
 
 // setupGracefulShutdown sets up graceful shutdown handling
-func setupGracefulShutdown(telemetryService *services.TelemetryService, logger *logrus.Logger) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+// func setupGracefulShutdown(telemetryService *services.TelemetryService, logger *logrus.Logger) {
+// 	c := make(chan os.Signal, 1)
+// 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		<-c
-		logger.Info("Received shutdown signal, starting graceful shutdown...")
+// 	go func() {
+// 		<-c
+// 		logger.Info("Received shutdown signal, starting graceful shutdown...")
 
-		// Stop telemetry service
-		if err := telemetryService.Stop(); err != nil {
-			logger.Errorf("Error stopping telemetry service: %v", err)
-		}
+// 		// Stop telemetry service
+// 		if err := telemetryService.Stop(); err != nil {
+// 			logger.Errorf("Error stopping telemetry service: %v", err)
+// 		}
 
-		logger.Info("Graceful shutdown completed")
-		os.Exit(0)
-	}()
-}
+// 		logger.Info("Graceful shutdown completed")
+// 		os.Exit(0)
+// 	}()
+// }
 
 // printStartupBanner prints the agent startup banner
 func printStartupBanner() {
 	fmt.Println(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                    Windows Security Agent                    ║
-║                        Version 1.0.0                        ║
+║                        Version 1.0.0                         ║
 ║                                                              ║
 ║  Enterprise-grade endpoint security monitoring platform      ║
-║  Collecting process, system, and network telemetry data     ║
+║  Collecting process, system, and network telemetry data      ║
 ╚══════════════════════════════════════════════════════════════╝
 `)
 }
