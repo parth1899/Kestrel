@@ -1,6 +1,7 @@
 package collectors
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -16,7 +17,9 @@ import (
 type NetworkCollector struct {
 	agentID           string
 	logger            *logrus.Logger
+	networkChan       chan models.NetworkEvent // Channel for real-time events
 	recentConnections map[string]time.Time
+	previousConns     map[string]NetworkConnection // Previous state for diffing
 }
 
 // NetworkConnection represents a network connection
@@ -36,8 +39,107 @@ func NewNetworkCollector(agentID string, logger *logrus.Logger) *NetworkCollecto
 	return &NetworkCollector{
 		agentID:           agentID,
 		logger:            logger,
+		networkChan:       make(chan models.NetworkEvent, 1000),
 		recentConnections: make(map[string]time.Time),
+		previousConns:     make(map[string]NetworkConnection),
 	}
+}
+
+// StartRealTimeMonitoring starts real-time network monitoring
+func (nc *NetworkCollector) StartRealTimeMonitoring(ctx context.Context) {
+	nc.logger.Info("Starting real-time network monitoring")
+
+	ticker := time.NewTicker(2 * time.Second) // Poll every 2 seconds
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			nc.logger.Info("Stopping network monitoring")
+			return
+
+		case <-ticker.C:
+			if err := nc.pollNetworkConnections(); err != nil {
+				nc.logger.Errorf("Network poll failed: %v", err)
+			}
+		}
+	}
+}
+
+// pollNetworkConnections checks for new network connections
+func (nc *NetworkCollector) pollNetworkConnections() error {
+	currentConns, err := nc.getCurrentConnections()
+	if err != nil {
+		return err
+	}
+
+	// Find new connections that weren't in previous state
+	for key, conn := range currentConns {
+		if _, exists := nc.previousConns[key]; !exists {
+			// This is a new connection
+			nc.handleNewConnection(conn)
+		}
+	}
+
+	// Update previous state
+	nc.previousConns = currentConns
+	return nil
+}
+
+// getCurrentConnections returns current network connections
+func (nc *NetworkCollector) getCurrentConnections() (map[string]NetworkConnection, error) {
+	conns, err := net.Connections("all")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network connections: %v", err)
+	}
+
+	currentConns := make(map[string]NetworkConnection)
+	for _, conn := range conns {
+		if conn.Pid == 0 || conn.Status == "CLOSE" || conn.Status == "NONE" {
+			continue
+		}
+
+		ncConn := NetworkConnection{
+			LocalIP:    conn.Laddr.IP,
+			LocalPort:  int(conn.Laddr.Port),
+			RemoteIP:   conn.Raddr.IP,
+			RemotePort: int(conn.Raddr.Port),
+			Protocol:   connTypeToString(conn.Type),
+			PID:        conn.Pid,
+		}
+
+		key := nc.generateConnectionKey(ncConn)
+		currentConns[key] = ncConn
+	}
+
+	return currentConns, nil
+}
+
+// handleNewConnection processes a new network connection
+func (nc *NetworkCollector) handleNewConnection(conn NetworkConnection) {
+	// Skip if recently seen
+	connKey := nc.generateConnectionKey(conn)
+	if nc.isRecentlySeen(connKey, time.Now()) {
+		return
+	}
+
+	// Create network event
+	event := nc.createNetworkEvent(conn, time.Now())
+	nc.recentConnections[connKey] = time.Now()
+
+	// Send to channel
+	select {
+	case nc.networkChan <- *event:
+		nc.logger.Debugf("Sent network event: %s:%d -> %s:%d (%s)",
+			conn.LocalIP, conn.LocalPort, conn.RemoteIP, conn.RemotePort, conn.Protocol)
+	default:
+		nc.logger.Warn("Network event channel full, dropping event")
+	}
+}
+
+// GetNetworkChannel returns the channel for receiving network events
+func (nc *NetworkCollector) GetNetworkChannel() <-chan models.NetworkEvent {
+	return nc.networkChan
 }
 
 // CollectNetworkEvents collects current network connections using gopsutil
