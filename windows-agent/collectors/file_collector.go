@@ -1,6 +1,7 @@
 package collectors
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,23 +11,145 @@ import (
 	"windows-agent/models"
 	"windows-agent/utils"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 )
 
 // FileCollector collects file-related telemetry data
 type FileCollector struct {
-	agentID string
-	logger  *logrus.Logger
+	agentID  string
+	logger   *logrus.Logger
+	watcher  *fsnotify.Watcher
+	fileChan chan models.FileEvent // Channel for real-time events
 	// Track recently seen files to avoid duplicates
 	recentFiles map[string]time.Time
 }
 
 // NewFileCollector creates a new file collector
-func NewFileCollector(agentID string, logger *logrus.Logger) *FileCollector {
+func NewFileCollector(agentID string, logger *logrus.Logger) (*FileCollector, error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file watcher: %v", err)
+	}
+
 	return &FileCollector{
 		agentID:     agentID,
 		logger:      logger,
+		watcher:     watcher,
+		fileChan:    make(chan models.FileEvent, 1000),
 		recentFiles: make(map[string]time.Time),
+	}, nil
+}
+
+// StartRealTimeMonitoring starts real-time file monitoring
+func (fc *FileCollector) StartRealTimeMonitoring(ctx context.Context) error {
+	fc.logger.Info("Starting real-time file monitoring")
+
+	// Watch common directories
+	directories := []string{
+		os.Getenv("TEMP"),
+		os.Getenv("TMP"),
+		os.Getenv("USERPROFILE") + "\\Downloads",
+		os.Getenv("USERPROFILE") + "\\Desktop",
+		os.Getenv("USERPROFILE") + "\\Documents",
+	}
+
+	for _, dir := range directories {
+		if dir == "" {
+			continue
+		}
+		if err := fc.watcher.Add(dir); err != nil {
+			fc.logger.Warnf("Failed to watch directory %s: %v", dir, err)
+		} else {
+			fc.logger.Debugf("Watching directory: %s", dir)
+		}
+	}
+
+	go fc.watchLoop(ctx)
+	return nil
+}
+
+// watchLoop handles file system events
+func (fc *FileCollector) watchLoop(ctx context.Context) {
+	defer close(fc.fileChan)
+	defer fc.watcher.Close()
+
+	for {
+		select {
+		case <-ctx.Done():
+			fc.logger.Info("Stopping file monitoring")
+			return
+
+		case event, ok := <-fc.watcher.Events:
+			if !ok {
+				return
+			}
+			fc.handleFileEvent(event)
+
+		case err, ok := <-fc.watcher.Errors:
+			if !ok {
+				return
+			}
+			fc.logger.Errorf("File watcher error: %v", err)
+		}
+	}
+}
+
+// handleFileEvent processes file system events
+func (fc *FileCollector) handleFileEvent(event fsnotify.Event) {
+	// Skip directories and system files
+	if info, err := os.Stat(event.Name); err != nil || info.IsDir() || fc.shouldSkipFile(event.Name, info) {
+		return
+	}
+
+	// Debounce: skip recently processed files
+	if fc.isRecentlySeen(event.Name, time.Now()) {
+		return
+	}
+
+	info, err := os.Stat(event.Name)
+	if err != nil {
+		fc.logger.Debugf("Failed to stat file %s: %v", event.Name, err)
+		return
+	}
+
+	// Determine event type
+	eventType := "modify"
+	if event.Op.Has(fsnotify.Create) {
+		eventType = "create"
+	} else if event.Op.Has(fsnotify.Remove) || event.Op.Has(fsnotify.Rename) {
+		eventType = "delete"
+	} else if event.Op.Has(fsnotify.Write) {
+		eventType = "modify"
+	}
+
+	fileEvent := fc.createFileEvent(event.Name, info, time.Now())
+	fileEvent.EventType = eventType
+
+	// Mark as recently seen
+	fc.recentFiles[event.Name] = time.Now()
+
+	// Send to channel
+	select {
+	case fc.fileChan <- *fileEvent:
+		fc.logger.Debugf("Sent file event: %s %s", eventType, event.Name)
+	default:
+		fc.logger.Warn("File event channel full, dropping event")
+	}
+}
+
+// GetFileChannel returns the channel for receiving file events
+func (fc *FileCollector) GetFileChannel() <-chan models.FileEvent {
+	return fc.fileChan
+}
+
+// CleanupOldEntries removes old entries from the recent files map
+func (fc *FileCollector) CleanupOldEntries() {
+	cutoff := time.Now().Add(-10 * time.Minute)
+	for path, lastSeen := range fc.recentFiles {
+		if lastSeen.Before(cutoff) {
+			delete(fc.recentFiles, path)
+		}
 	}
 }
 
@@ -214,14 +337,4 @@ func (fc *FileCollector) CollectFileAccessEvent(filePath string, accessType stri
 // GetFileCount returns the number of files being monitored
 func (fc *FileCollector) GetFileCount() int {
 	return len(fc.recentFiles)
-}
-
-// CleanupOldEntries removes old entries from the recent files map
-func (fc *FileCollector) CleanupOldEntries() {
-	cutoff := time.Now().Add(-10 * time.Minute)
-	for path, lastSeen := range fc.recentFiles {
-		if lastSeen.Before(cutoff) {
-			delete(fc.recentFiles, path)
-		}
-	}
 }
