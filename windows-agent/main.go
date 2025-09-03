@@ -70,7 +70,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	logger.Info("Windows Security Agent is running. Press Ctrl+C to stop.")
+	logger.Info("Windows Security Agent is running with real-time monitoring. Press Ctrl+C to stop.")
 
 	// Wait for shutdown signal
 	<-sigChan
@@ -112,6 +112,5 @@ func printStartupBanner() {
 ║                                                              ║
 ║  Enterprise-grade endpoint security monitoring platform      ║
 ║  Collecting process, system, and network telemetry data      ║
-╚══════════════════════════════════════════════════════════════╝
-`)
+╚══════════════════════════════════════════════════════════════╝`)
 }
