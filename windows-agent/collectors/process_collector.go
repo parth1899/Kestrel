@@ -1,9 +1,11 @@
 package collectors
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"windows-agent/models"
@@ -15,16 +17,151 @@ import (
 
 // ProcessCollector collects process-related telemetry data
 type ProcessCollector struct {
-	agentID string
-	logger  *logrus.Logger
+	agentID        string
+	logger         *logrus.Logger
+	processChan    chan models.ProcessEvent // Channel for real-time events
+	knownProcesses map[int32]bool
+	knownMutex     sync.RWMutex
 }
 
 // NewProcessCollector creates a new process collector
 func NewProcessCollector(agentID string, logger *logrus.Logger) *ProcessCollector {
 	return &ProcessCollector{
-		agentID: agentID,
-		logger:  logger,
+		agentID:        agentID,
+		logger:         logger,
+		processChan:    make(chan models.ProcessEvent, 1000),
+		knownProcesses: make(map[int32]bool),
 	}
+}
+
+// StartRealTimeMonitoring starts real-time process monitoring using fast polling
+func (pc *ProcessCollector) StartRealTimeMonitoring(ctx context.Context) {
+	pc.logger.Info("Starting real-time process monitoring using fast polling")
+
+	// Get initial process list
+	processes, err := process.Processes()
+	if err != nil {
+		pc.logger.Errorf("Failed to get initial process list: %v", err)
+		return
+	}
+
+	// Populate known processes
+	pc.knownMutex.Lock()
+	for _, proc := range processes {
+		pc.knownProcesses[proc.Pid] = true
+	}
+	pc.knownMutex.Unlock()
+
+	// Start monitoring loop in a goroutine
+	go func() {
+		ticker := time.NewTicker(1 * time.Second) // Poll every second
+		defer ticker.Stop()
+		defer close(pc.processChan) // Close channel when done
+
+		for {
+			select {
+			case <-ctx.Done():
+				pc.logger.Info("Stopping process monitoring")
+				return
+			case <-ticker.C:
+				pc.detectProcessChanges()
+			}
+		}
+	}()
+}
+
+// detectProcessChanges detects new and terminated processes
+func (pc *ProcessCollector) detectProcessChanges() {
+	currentProcesses, err := process.Processes()
+	if err != nil {
+		pc.logger.Errorf("Failed to get current process list: %v", err)
+		return
+	}
+
+	// Create a map of current PIDs
+	currentPIDs := make(map[int32]bool)
+	for _, proc := range currentProcesses {
+		currentPIDs[proc.Pid] = true
+	}
+
+	pc.knownMutex.Lock()
+	defer pc.knownMutex.Unlock()
+
+	// Check for new processes
+	for _, proc := range currentProcesses {
+		if !pc.knownProcesses[proc.Pid] {
+			// This is a new process
+			pc.knownProcesses[proc.Pid] = true
+			pc.handleProcessStart(proc)
+		}
+	}
+
+	// Check for terminated processes
+	for pid := range pc.knownProcesses {
+		if !currentPIDs[pid] {
+			// This process has terminated
+			delete(pc.knownProcesses, pid)
+			pc.handleProcessStop(pid)
+		}
+	}
+}
+
+// handleProcessStart handles process creation events
+func (pc *ProcessCollector) handleProcessStart(proc *process.Process) {
+	processEvent, err := pc.collectProcessInfo(proc)
+	if err != nil {
+		pc.logger.Warnf("Failed to collect process info for PID %d: %v", proc.Pid, err)
+		return
+	}
+
+	processEvent.EventType = "start"
+	processEvent.Timestamp = time.Now()
+	processEvent.CreatedAt = time.Now()
+
+	// Send to channel for processing
+	select {
+	case pc.processChan <- *processEvent:
+		pc.logger.Debugf("Sent process start event for PID %d", proc.Pid)
+	default:
+		pc.logger.Warn("Process event channel full, dropping event")
+	}
+}
+
+// handleProcessStop handles process termination events
+func (pc *ProcessCollector) handleProcessStop(pid int32) {
+	// Try to get process name from system
+	var processName string
+	if proc, err := process.NewProcess(pid); err == nil {
+		if name, err := proc.Name(); err == nil {
+			processName = name
+		}
+	}
+
+	now := time.Now()
+	processEvent := &models.ProcessEvent{
+		ID:          utils.GenerateUUID(),
+		AgentID:     pc.agentID,
+		ProcessID:   int(pid),
+		ProcessName: processName,
+		EventType:   "stop",
+		Timestamp:   now,
+		EndTime:     &now,
+		Severity:    "low",
+		CreatedAt:   now,
+	}
+
+	// Send to channel for processing
+	select {
+	case pc.processChan <- *processEvent:
+		pc.logger.Debugf("Sent process stop event for PID %d", pid)
+	default:
+		pc.logger.Warn("Process event channel full, dropping event")
+	}
+}
+
+// GetProcessChannel returns the channel for receiving process events
+func (pc *ProcessCollector) GetProcessChannel() <-chan models.ProcessEvent {
+	return pc.processChan
 }
 
 // CollectProcesses collects information about running processes

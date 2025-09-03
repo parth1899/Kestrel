@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -26,19 +27,25 @@ type TelemetryService struct {
 	wg               sync.WaitGroup
 	running          bool
 	mutex            sync.RWMutex
+	ctx              context.Context
+	cancel           context.CancelFunc
 }
 
 // NewTelemetryService creates a new telemetry service
 func NewTelemetryService(cfg *config.Config, repo *database.Repository, logger *logrus.Logger) *TelemetryService {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &TelemetryService{
 		config:           cfg,
 		repo:             repo,
 		processCollector: collectors.NewProcessCollector(cfg.Agent.ID, logger),
 		systemCollector:  collectors.NewSystemCollector(cfg.Agent.ID, logger),
-		fileCollector:    collectors.NewFileCollector(cfg.Agent.ID, logger),
-		networkCollector: collectors.NewNetworkCollector(cfg.Agent.ID, logger),
-		logger:           logger,
-		stopChan:         make(chan struct{}),
+		// fileCollector:    collectors.NewFileCollector(cfg.Agent.ID, logger),
+		// networkCollector: collectors.NewNetworkCollector(cfg.Agent.ID, logger),
+		logger:   logger,
+		stopChan: make(chan struct{}),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 }
 
@@ -51,19 +58,110 @@ func (ts *TelemetryService) Start() error {
 		return fmt.Errorf("telemetry service is already running")
 	}
 
+	// Initialize file collector
+	fileCollector, err := collectors.NewFileCollector(ts.config.Agent.ID, ts.logger)
+	if err != nil {
+		return fmt.Errorf("failed to create file collector: %v", err)
+	}
+	ts.fileCollector = fileCollector
+
+	// Initialize network collector
+	ts.networkCollector = collectors.NewNetworkCollector(ts.config.Agent.ID, ts.logger)
+
 	ts.running = true
-	ts.logger.Info("Starting telemetry service...")
+	ts.logger.Info("Starting telemetry service with real-time monitoring...")
 
-	// Start background collection
-	ts.wg.Add(1)
-	go ts.collectionLoop()
+	// Start real-time monitors
+	ts.wg.Add(4) // Process, File, Network, System monitoring
 
-	// Start system monitoring
-	ts.wg.Add(1)
+	go ts.processEventLoop()
+	go ts.fileEventLoop()
+	go ts.networkEventLoop()
 	go ts.systemMonitoringLoop()
 
-	ts.logger.Info("Telemetry service started successfully")
+	ts.logger.Info("Telemetry service started successfully with real-time monitoring")
 	return nil
+}
+
+// processEventLoop handles real-time process events
+func (ts *TelemetryService) processEventLoop() {
+	defer ts.wg.Done()
+
+	// Start the monitoring in a goroutine (it's non-blocking now)
+	ts.processCollector.StartRealTimeMonitoring(ts.ctx)
+
+	// Process events from the channel
+	for event := range ts.processCollector.GetProcessChannel() {
+		if err := ts.repo.SaveProcessEvent(&event); err != nil {
+			ts.logger.Errorf("Failed to save process event: %v", err)
+		} else {
+			ts.logger.Debugf("Saved process event: %s (PID: %d)", event.ProcessName, event.ProcessID)
+		}
+	}
+}
+
+// fileEventLoop handles real-time file events
+func (ts *TelemetryService) fileEventLoop() {
+	defer ts.wg.Done()
+
+	if err := ts.fileCollector.StartRealTimeMonitoring(ts.ctx); err != nil {
+		ts.logger.Errorf("Failed to start file monitoring: %v", err)
+		return
+	}
+
+	// Start cleanup goroutine
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ts.ctx.Done():
+				return
+			case <-ticker.C:
+				ts.fileCollector.CleanupOldEntries()
+			}
+		}
+	}()
+
+	for event := range ts.fileCollector.GetFileChannel() {
+		if err := ts.repo.SaveFileEvent(&event); err != nil {
+			ts.logger.Errorf("Failed to save file event: %v", err)
+		} else {
+			ts.logger.Debugf("Saved file event: %s %s", event.EventType, event.FileName)
+		}
+	}
+}
+
+// networkEventLoop handles real-time network events
+func (ts *TelemetryService) networkEventLoop() {
+	defer ts.wg.Done()
+
+	go ts.networkCollector.StartRealTimeMonitoring(ts.ctx)
+
+	// Start cleanup goroutine
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ts.ctx.Done():
+				return
+			case <-ticker.C:
+				ts.networkCollector.CleanupOldConnections()
+			}
+		}
+	}()
+
+	for event := range ts.networkCollector.GetNetworkChannel() {
+		if err := ts.repo.SaveNetworkEvent(&event); err != nil {
+			ts.logger.Errorf("Failed to save network event: %v", err)
+		} else {
+			ts.logger.Debugf("Saved network event: %s:%d -> %s:%d",
+				event.LocalIP, event.LocalPort, event.RemoteIP, event.RemotePort)
+		}
+	}
 }
 
 // Stop stops the telemetry collection service
@@ -76,8 +174,12 @@ func (ts *TelemetryService) Stop() error {
 	}
 
 	ts.logger.Info("Stopping telemetry service...")
-	close(ts.stopChan)
+
+	// cancel context to stop all go routines
+	ts.cancel()
+
 	ts.running = false
+	close(ts.stopChan)
 
 	// Wait for all goroutines to finish
 	ts.wg.Wait()

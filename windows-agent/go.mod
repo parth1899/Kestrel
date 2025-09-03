@@ -3,6 +3,7 @@ module windows-agent
 go 1.21
 
 require (
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/lib/pq v1.10.9
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/sirupsen/logrus v1.9.3
@@ -10,7 +11,6 @@ require (
 )
 
 require (
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
