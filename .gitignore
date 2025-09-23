@@ -1,3 +1,8 @@
 *.exe
 config.yaml
 .vscode/
+docker-compose.yml
+postgres.yml
+windows-agent/config/config.yaml
+*/*/config.yaml
+windows-agent/config/config.yaml
