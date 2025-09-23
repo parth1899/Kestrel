@@ -1,0 +1,787 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 6,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH latest_metrics AS (\n  SELECT \n    cpu_usage,\n    ((total_memory - available_memory)::float / total_memory::float) * 100 as memory_usage,\n    disk_usage\n  FROM system_info \n  ORDER BY timestamp DESC \n  LIMIT 1\n)\nSELECT \n  CASE \n    WHEN cpu_usage > 90 OR memory_usage > 90 OR disk_usage > 90 THEN 0\n    WHEN cpu_usage > 70 OR memory_usage > 70 OR disk_usage > 70 THEN 70\n    ELSE 100\n  END as \"System Health Score\"\nFROM latest_metrics",
+          "refId": "A"
+        }
+      ],
+      "title": "System Health Score",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH hourly_data AS (\n  SELECT \n    DATE_TRUNC('hour', timestamp) as hour,\n    AVG(cpu_usage) as avg_cpu,\n    AVG(((total_memory - available_memory)::float / total_memory::float) * 100) as avg_memory\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '24 hours'\n  GROUP BY hour\n  ORDER BY hour\n),\nanomalies AS (\n  SELECT \n    COUNT(*) as anomaly_count\n  FROM hourly_data\n  WHERE avg_cpu > 80 OR avg_memory > 85\n)\nSELECT anomaly_count as \"Performance Anomalies (24h)\"\nFROM anomalies",
+          "refId": "A"
+        }
+      ],
+      "title": "Performance Anomalies",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 28,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH trend_data AS (\n  SELECT \n    cpu_usage,\n    LAG(cpu_usage) OVER (ORDER BY timestamp) as prev_cpu\n  FROM system_info \n  ORDER BY timestamp DESC\n  LIMIT 10\n)\nSELECT \n  CASE \n    WHEN AVG(cpu_usage - prev_cpu) > 0 THEN AVG(cpu_usage - prev_cpu)\n    ELSE 0\n  END as \"CPU Trend (+/-)\"\nFROM trend_data\nWHERE prev_cpu IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Trend (Increasing)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 29,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH prediction AS (\n  SELECT \n    available_memory,\n    total_memory,\n    EXTRACT(EPOCH FROM (timestamp - LAG(timestamp) OVER (ORDER BY timestamp))) as time_diff\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '1 hour'\n  ORDER BY timestamp DESC\n  LIMIT 10\n),\nmemory_rate AS (\n  SELECT \n    AVG((total_memory - available_memory) / NULLIF(time_diff, 0)) as consumption_rate,\n    (SELECT available_memory FROM system_info ORDER BY timestamp DESC LIMIT 1) as current_available\n  FROM prediction\n  WHERE time_diff > 0\n)\nSELECT \n  CASE \n    WHEN consumption_rate > 0 THEN current_available / consumption_rate\n    ELSE 999999\n  END as \"Memory Exhaustion ETA\"\nFROM memory_rate",
+          "refId": "A"
+        }
+      ],
+      "title": "Memory Exhaustion ETA",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Predicted CPU"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [10, 10],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH extended_data AS (\n  SELECT \n    timestamp,\n    cpu_usage as \"Actual CPU\",\n    -- Simple moving average prediction\n    AVG(cpu_usage) OVER (\n      ORDER BY timestamp \n      ROWS BETWEEN 4 PRECEDING AND CURRENT ROW\n    ) as \"Predicted CPU\",\n    -- Exponential moving average\n    CASE \n      WHEN LAG(cpu_usage, 1) OVER (ORDER BY timestamp) IS NOT NULL \n      THEN cpu_usage * 0.3 + LAG(cpu_usage, 1) OVER (ORDER BY timestamp) * 0.7\n      ELSE cpu_usage\n    END as \"Smoothed CPU\"\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '3 hours'\n  ORDER BY timestamp\n)\nSELECT \n  timestamp as time,\n  \"Actual CPU\",\n  \"Predicted CPU\",\n  \"Smoothed CPU\"\nFROM extended_data\nORDER BY timestamp",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Usage with Predictive Analytics",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH memory_analysis AS (\n  SELECT \n    timestamp,\n    total_memory as \"Total Memory\",\n    available_memory as \"Available Memory\",\n    (total_memory - available_memory) as \"Used Memory\",\n    -- Calculate memory pressure\n    CASE \n      WHEN ((total_memory - available_memory)::float / total_memory::float) > 0.9 \n      THEN total_memory * 0.1\n      ELSE available_memory\n    END as \"Critical Threshold\",\n    -- Memory efficiency score\n    available_memory::float / total_memory::float * 100 as efficiency\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '3 hours'\n  ORDER BY timestamp\n)\nSELECT \n  timestamp as time,\n  \"Total Memory\",\n  \"Available Memory\",\n  \"Used Memory\",\n  \"Critical Threshold\"\nFROM memory_analysis\nORDER BY timestamp",
+          "refId": "A"
+        }
+      ],
+      "title": "Advanced Memory Analysis",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "displayMode": "visible",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": ["percent"]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH latest_system AS (\n  SELECT \n    cpu_usage,\n    ((total_memory - available_memory)::float / total_memory::float) * 100 as memory_usage,\n    disk_usage\n  FROM system_info \n  ORDER BY timestamp DESC \n  LIMIT 1\n)\nSELECT \n  'CPU Usage' as \"Resource\",\n  cpu_usage as \"Usage %\"\nFROM latest_system\nUNION ALL\nSELECT \n  'Memory Usage' as \"Resource\",\n  memory_usage as \"Usage %\"\nFROM latest_system\nUNION ALL\nSELECT \n  'Disk Usage' as \"Resource\",\n  disk_usage as \"Usage %\"\nFROM latest_system",
+          "refId": "A"
+        }
+      ],
+      "title": "Resource Utilization Breakdown",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH hourly_performance AS (\n  SELECT \n    EXTRACT(HOUR FROM timestamp) as hour,\n    AVG(cpu_usage) as avg_cpu,\n    MAX(cpu_usage) as max_cpu,\n    MIN(cpu_usage) as min_cpu,\n    STDDEV(cpu_usage) as cpu_volatility\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '24 hours'\n  GROUP BY EXTRACT(HOUR FROM timestamp)\n  ORDER BY hour\n)\nSELECT \n  LPAD(hour::text, 2, '0') || ':00' as \"Hour\",\n  avg_cpu as \"Average CPU\",\n  max_cpu as \"Peak CPU\",\n  cpu_volatility as \"CPU Volatility\"\nFROM hourly_performance\nORDER BY hour",
+          "refId": "A"
+        }
+      ],
+      "title": "Hourly Performance Patterns",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Performance Score"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU Usage"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory Usage"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk Usage"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 34,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Timestamp"
+          }
+        ]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "WITH performance_metrics AS (\n  SELECT \n    timestamp,\n    hostname,\n    cpu_usage,\n    ((total_memory - available_memory)::float / total_memory::float) * 100 as memory_usage,\n    disk_usage,\n    -- Calculate performance score\n    CASE \n      WHEN cpu_usage <= 50 AND ((total_memory - available_memory)::float / total_memory::float) * 100 <= 60 AND disk_usage <= 70 THEN 'Excellent'\n      WHEN cpu_usage <= 70 AND ((total_memory - available_memory)::float / total_memory::float) * 100 <= 80 AND disk_usage <= 85 THEN 'Good'\n      WHEN cpu_usage <= 85 AND ((total_memory - available_memory)::float / total_memory::float) * 100 <= 90 AND disk_usage <= 95 THEN 'Fair'\n      ELSE 'Poor'\n    END as performance_score,\n    -- System load category\n    CASE \n      WHEN cpu_usage > 80 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 85 THEN 'High Load'\n      WHEN cpu_usage > 60 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 70 THEN 'Medium Load'\n      ELSE 'Low Load'\n    END as load_category\n  FROM system_info \n  ORDER BY timestamp DESC\n  LIMIT 10\n)\nSELECT \n  timestamp as \"Timestamp\",\n  hostname as \"Hostname\",\n  cpu_usage as \"CPU Usage\",\n  memory_usage as \"Memory Usage\",\n  disk_usage as \"Disk Usage\",\n  performance_score as \"Performance Score\",\n  load_category as \"Load Category\"\nFROM performance_metrics\nORDER BY timestamp DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Intelligent Performance Scoring",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "threat-detection",
+    "advanced-analytics",
+    "performance"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Advanced System Analytics",
+  "uid": "advanced-analytics",
+  "version": 1,
+  "weekStart": ""
+}
