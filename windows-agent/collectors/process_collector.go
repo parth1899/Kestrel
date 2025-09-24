@@ -299,39 +299,39 @@ func (pc *ProcessCollector) determineProcessSeverity(event *models.ProcessEvent)
 }
 
 // CollectProcessStartEvent collects information when a new process starts
-func (pc *ProcessCollector) CollectProcessStartEvent(pid int) (*models.ProcessEvent, error) {
-	proc, err := process.NewProcess(int32(pid))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get process %d: %v", pid, err)
-	}
+// func (pc *ProcessCollector) CollectProcessStartEvent(pid int) (*models.ProcessEvent, error) {
+// 	proc, err := process.NewProcess(int32(pid))
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get process %d: %v", pid, err)
+// 	}
 
-	event, err := pc.collectProcessInfo(proc)
-	if err != nil {
-		return nil, err
-	}
+// 	event, err := pc.collectProcessInfo(proc)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	event.EventType = "start"
-	event.Severity = "medium" // Process start events are typically medium priority
+// 	event.EventType = "start"
+// 	event.Severity = "medium" // Process start events are typically medium priority
 
-	return event, nil
-}
+// 	return event, nil
+// }
 
 // CollectProcessStopEvent collects information when a process stops
-func (pc *ProcessCollector) CollectProcessStopEvent(pid int, processName string) *models.ProcessEvent {
-	now := time.Now()
+// func (pc *ProcessCollector) CollectProcessStopEvent(pid int, processName string) *models.ProcessEvent {
+// 	now := time.Now()
 
-	return &models.ProcessEvent{
-		ID:          utils.GenerateUUID(),
-		AgentID:     pc.agentID,
-		ProcessID:   pid,
-		ProcessName: processName,
-		EventType:   "stop",
-		Timestamp:   now,
-		EndTime:     &now,
-		Severity:    "low",
-		CreatedAt:   now,
-	}
-}
+// 	return &models.ProcessEvent{
+// 		ID:          utils.GenerateUUID(),
+// 		AgentID:     pc.agentID,
+// 		ProcessID:   pid,
+// 		ProcessName: processName,
+// 		EventType:   "stop",
+// 		Timestamp:   now,
+// 		EndTime:     &now,
+// 		Severity:    "low",
+// 		CreatedAt:   now,
+// 	}
+// }
 
 // GetProcessCount returns the total number of running processes
 func (pc *ProcessCollector) GetProcessCount() (int, error) {
@@ -343,23 +343,23 @@ func (pc *ProcessCollector) GetProcessCount() (int, error) {
 }
 
 // GetProcessesByUser returns processes running under a specific user
-func (pc *ProcessCollector) GetProcessesByUser(username string) ([]models.ProcessEvent, error) {
-	var events []models.ProcessEvent
+// func (pc *ProcessCollector) GetProcessesByUser(username string) ([]models.ProcessEvent, error) {
+// 	var events []models.ProcessEvent
 
-	processes, err := process.Processes()
-	if err != nil {
-		return nil, err
-	}
+// 	processes, err := process.Processes()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	for _, proc := range processes {
-		if procUsername, err := proc.Username(); err == nil && procUsername == username {
-			event, err := pc.collectProcessInfo(proc)
-			if err != nil {
-				continue
-			}
-			events = append(events, *event)
-		}
-	}
+// 	for _, proc := range processes {
+// 		if procUsername, err := proc.Username(); err == nil && procUsername == username {
+// 			event, err := pc.collectProcessInfo(proc)
+// 			if err != nil {
+// 				continue
+// 			}
+// 			events = append(events, *event)
+// 		}
+// 	}
 
-	return events, nil
-}
+// 	return events, nil
+// }
