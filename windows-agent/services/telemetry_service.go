@@ -16,24 +16,26 @@ import (
 
 // TelemetryService orchestrates data collection and storage
 type TelemetryService struct {
-	config           *config.Config
-	repo             *database.Repository
+	config *config.Config
+	repo   *database.Repository
+	// Collectors
 	processCollector *collectors.ProcessCollector
 	systemCollector  *collectors.SystemCollector
 	fileCollector    *collectors.FileCollector
 	networkCollector *collectors.NetworkCollector
-	logger           *logrus.Logger
-	stopChan         chan struct{}
-	wg               sync.WaitGroup
-	running          bool
-	mutex            sync.RWMutex
-	ctx              context.Context
-	cancel           context.CancelFunc
+	// Control Mechanisms
+	logger   *logrus.Logger
+	stopChan chan struct{} // channel for stopping the service
+	wg       sync.WaitGroup
+	running  bool
+	mutex    sync.RWMutex       // for thread-safe operations
+	ctx      context.Context    // context for managing goroutines
+	cancel   context.CancelFunc // context cancel function
 }
 
 // NewTelemetryService creates a new telemetry service
 func NewTelemetryService(cfg *config.Config, repo *database.Repository, logger *logrus.Logger) *TelemetryService {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // create a cancellable context
 
 	return &TelemetryService{
 		config:           cfg,
@@ -85,7 +87,7 @@ func (ts *TelemetryService) Start() error {
 
 // processEventLoop handles real-time process events
 func (ts *TelemetryService) processEventLoop() {
-	defer ts.wg.Done()
+	defer ts.wg.Done() // decrements the wait group counter by 1 when the goroutine completes
 
 	// Start the monitoring in a goroutine (it's non-blocking now)
 	ts.processCollector.StartRealTimeMonitoring(ts.ctx)
@@ -116,7 +118,7 @@ func (ts *TelemetryService) fileEventLoop() {
 
 		for {
 			select {
-			case <-ts.ctx.Done():
+			case <-ts.ctx.Done(): // Can be cancelled using the context
 				return
 			case <-ticker.C:
 				ts.fileCollector.CleanupOldEntries()
@@ -164,58 +166,6 @@ func (ts *TelemetryService) networkEventLoop() {
 	}
 }
 
-// Stop stops the telemetry collection service
-func (ts *TelemetryService) Stop() error {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
-
-	if !ts.running {
-		return fmt.Errorf("telemetry service is not running")
-	}
-
-	ts.logger.Info("Stopping telemetry service...")
-
-	// cancel context to stop all go routines
-	ts.cancel()
-
-	ts.running = false
-	close(ts.stopChan)
-
-	// Wait for all goroutines to finish
-	ts.wg.Wait()
-	ts.logger.Info("Telemetry service stopped successfully")
-	return nil
-}
-
-// IsRunning returns whether the service is currently running
-func (ts *TelemetryService) IsRunning() bool {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
-	return ts.running
-}
-
-// collectionLoop runs the main collection loop
-func (ts *TelemetryService) collectionLoop() {
-	defer ts.wg.Done()
-
-	ticker := time.NewTicker(time.Duration(ts.config.Agent.CollectorInterval) * time.Second)
-	defer ticker.Stop()
-
-	ts.logger.Infof("Starting collection loop with interval: %d seconds", ts.config.Agent.CollectorInterval)
-
-	for {
-		select {
-		case <-ts.stopChan:
-			ts.logger.Info("Collection loop stopped")
-			return
-		case <-ticker.C:
-			if err := ts.collectAndStore(); err != nil {
-				ts.logger.Errorf("Error in collection cycle: %v", err)
-			}
-		}
-	}
-}
-
 // systemMonitoringLoop runs system monitoring at a different interval
 func (ts *TelemetryService) systemMonitoringLoop() {
 	defer ts.wg.Done()
@@ -232,7 +182,7 @@ func (ts *TelemetryService) systemMonitoringLoop() {
 
 	for {
 		select {
-		case <-ts.stopChan:
+		case <-ts.ctx.Done():
 			ts.logger.Info("System monitoring loop stopped")
 			return
 		case <-ticker.C:
@@ -242,6 +192,89 @@ func (ts *TelemetryService) systemMonitoringLoop() {
 		}
 	}
 }
+
+// Stop stops the telemetry collection service
+func (ts *TelemetryService) Stop() error {
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
+
+	if !ts.running {
+		return fmt.Errorf("telemetry service is not running")
+	}
+
+	ts.logger.Info("Stopping telemetry service...")
+
+	// cancel context to stop all go routines
+	ts.cancel()
+
+	ts.running = false
+
+	// Wait for all goroutines to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		ts.wg.Wait()
+		close(done)
+	}()
+
+	// Wait for graceful shutdown or timeout after 10 seconds
+	select {
+	case <-done:
+		ts.logger.Info("All goroutines stopped gracefully")
+	case <-time.After(10 * time.Second):
+		ts.logger.Warn("Timeout waiting for goroutines to stop, forcing shutdown")
+	}
+
+	close(ts.stopChan)
+
+	ts.logger.Info("Telemetry service stopped successfully")
+	return nil
+}
+
+// IsRunning returns whether the service is currently running
+func (ts *TelemetryService) IsRunning() bool {
+	ts.mutex.RLock()
+	defer ts.mutex.RUnlock()
+	return ts.running
+}
+
+// collectSystemInfo collects and stores system information
+func (ts *TelemetryService) collectSystemInfo() error {
+	ts.logger.Debug("Collecting system information")
+
+	systemInfo, err := ts.systemCollector.CollectSystemInfo()
+	if err != nil {
+		return fmt.Errorf("failed to collect system info: %v", err)
+	}
+
+	if err := ts.repo.SaveSystemInfo(systemInfo); err != nil {
+		return fmt.Errorf("failed to save system info: %v", err)
+	}
+
+	ts.logger.Debugf("System info collected and stored for host: %s", systemInfo.Hostname)
+	return nil
+}
+
+// // collectionLoop runs the main collection loop
+// func (ts *TelemetryService) collectionLoop() {
+// 	defer ts.wg.Done()
+
+// 	ticker := time.NewTicker(time.Duration(ts.config.Agent.CollectorInterval) * time.Second)
+// 	defer ticker.Stop()
+
+// 	ts.logger.Infof("Starting collection loop with interval: %d seconds", ts.config.Agent.CollectorInterval)
+
+// 	for {
+// 		select {
+// 		case <-ts.stopChan:
+// 			ts.logger.Info("Collection loop stopped")
+// 			return
+// 		case <-ticker.C:
+// 			if err := ts.collectAndStore(); err != nil {
+// 				ts.logger.Errorf("Error in collection cycle: %v", err)
+// 			}
+// 		}
+// 	}
+// }
 
 // collectAndStore performs a complete collection cycle
 func (ts *TelemetryService) collectAndStore() error {
@@ -301,28 +334,11 @@ func (ts *TelemetryService) collectAndStore() error {
 	return nil
 }
 
-// collectSystemInfo collects and stores system information
-func (ts *TelemetryService) collectSystemInfo() error {
-	ts.logger.Debug("Collecting system information")
-
-	systemInfo, err := ts.systemCollector.CollectSystemInfo()
-	if err != nil {
-		return fmt.Errorf("failed to collect system info: %v", err)
-	}
-
-	if err := ts.repo.SaveSystemInfo(systemInfo); err != nil {
-		return fmt.Errorf("failed to save system info: %v", err)
-	}
-
-	ts.logger.Debugf("System info collected and stored for host: %s", systemInfo.Hostname)
-	return nil
-}
-
-// collectSystemInfoOnDemand performs immediate system info collection
-func (ts *TelemetryService) collectSystemInfoOnDemand() error {
-	ts.logger.Info("Performing on-demand system info collection")
-	return ts.collectSystemInfo()
-}
+// // collectSystemInfoOnDemand performs immediate system info collection
+// func (ts *TelemetryService) collectSystemInfoOnDemand() error {
+// 	ts.logger.Info("Performing on-demand system info collection")
+// 	return ts.collectSystemInfo()
+// }
 
 // collectPerformanceMetrics collects and stores performance metrics
 func (ts *TelemetryService) collectPerformanceMetrics() error {
