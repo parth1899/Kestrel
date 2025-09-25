@@ -316,19 +316,19 @@ func (nc *NetworkCollector) getConnectionCounters(conn net.ConnectionStat) (net.
 }
 
 // GetConnectionCount returns the number of active connections
-// func (nc *NetworkCollector) GetConnectionCount() (int, error) {
-// 	conns, err := net.Connections("all")
-// 	if err != nil {
-// 		return 0, fmt.Errorf("failed to get connection count: %v", err)
-// 	}
-// 	count := 0
-// 	for _, conn := range conns {
-// 		if conn.Pid != 0 && conn.Status != "CLOSE" && conn.Status != "NONE" {
-// 			count++
-// 		}
-// 	}
-// 	return count, nil
-// }
+func (nc *NetworkCollector) GetConnectionCount() (int, error) {
+	conns, err := net.Connections("all")
+	if err != nil {
+		return 0, fmt.Errorf("failed to get connection count: %v", err)
+	}
+	count := 0
+	for _, conn := range conns {
+		if conn.Pid != 0 && conn.Status != "CLOSE" && conn.Status != "NONE" {
+			count++
+		}
+	}
+	return count, nil
+}
 
 // CleanupOldConnections removes old entries from the recent connections map
 func (nc *NetworkCollector) CleanupOldConnections() {

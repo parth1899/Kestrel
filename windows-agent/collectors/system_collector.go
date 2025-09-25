@@ -14,20 +14,23 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/process"
 	"github.com/sirupsen/logrus"
 )
 
 // SystemCollector collects system-level telemetry data
 type SystemCollector struct {
-	agentID string
-	logger  *logrus.Logger
+	agentID      string
+	logger       *logrus.Logger
+	netCollector *NetworkCollector
 }
 
 // NewSystemCollector creates a new system collector
 func NewSystemCollector(agentID string, logger *logrus.Logger) *SystemCollector {
 	return &SystemCollector{
-		agentID: agentID,
-		logger:  logger,
+		agentID:      agentID,
+		logger:       logger,
+		netCollector: NewNetworkCollector(agentID, logger),
 	}
 }
 
@@ -214,7 +217,12 @@ func (sc *SystemCollector) CollectPerformanceMetrics() (map[string]interface{}, 
 	}
 
 	// Network metrics (basic)
-	metrics["network_connections"] = 0 // Would need to implement network connection counting
+	if connectionCount, err := sc.netCollector.GetConnectionCount(); err == nil {
+		metrics["network_connections"] = connectionCount
+	} else {
+		metrics["network_connections"] = 0
+		sc.logger.Warnf("Failed to get network connection count: %v", err)
+	}
 
 	// Process count
 	if processCount, err := sc.getProcessCount(); err == nil {
@@ -228,8 +236,13 @@ func (sc *SystemCollector) CollectPerformanceMetrics() (map[string]interface{}, 
 
 // getProcessCount gets the current process count
 func (sc *SystemCollector) getProcessCount() (int, error) {
-	// This is a simplified version - would typically use gopsutil/process
-	return 100, nil
+	processes, err := process.Processes()
+	if err != nil {
+		sc.logger.Errorf("Failed to get process count: %v", err)
+		return 0, err
+	}
+
+	return len(processes), nil
 }
 
 // CollectDiskInfo collects detailed disk information
