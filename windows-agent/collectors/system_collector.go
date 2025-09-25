@@ -129,102 +129,6 @@ func (sc *SystemCollector) shouldSkipPartition(partition disk.PartitionStat) boo
 	return false
 }
 
-// CollectDiskInfo collects detailed disk information
-func (sc *SystemCollector) CollectDiskInfo() ([]map[string]interface{}, error) {
-	var diskInfos []map[string]interface{}
-
-	partitions, err := disk.Partitions(false)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, partition := range partitions {
-		if sc.shouldSkipPartition(partition) {
-			continue
-		}
-
-		usage, err := disk.Usage(partition.Mountpoint)
-		if err != nil {
-			continue
-		}
-
-		diskInfo := map[string]interface{}{
-			"device":              partition.Device,
-			"mountpoint":          partition.Mountpoint,
-			"fstype":              partition.Fstype,
-			"total":               usage.Total,
-			"used":                usage.Used,
-			"free":                usage.Free,
-			"usage_percent":       usage.UsedPercent,
-			"inodes_total":        usage.InodesTotal,
-			"inodes_used":         usage.InodesUsed,
-			"inodes_free":         usage.InodesFree,
-			"inodes_used_percent": usage.InodesUsedPercent,
-		}
-
-		diskInfos = append(diskInfos, diskInfo)
-	}
-
-	return diskInfos, nil
-}
-
-// CollectNetworkInterfaces collects network interface information
-func (sc *SystemCollector) CollectNetworkInterfaces() ([]map[string]interface{}, error) {
-	// This would typically use gopsutil/net package
-	// For now, return basic interface info
-	interfaces := []map[string]interface{}{
-		{
-			"name":        "Ethernet",
-			"type":        "wired",
-			"status":      "up",
-			"speed":       1000,
-			"mac_address": "00:00:00:00:00:00",
-		},
-		{
-			"name":        "Wi-Fi",
-			"type":        "wireless",
-			"status":      "up",
-			"speed":       300,
-			"mac_address": "00:00:00:00:00:01",
-		},
-	}
-
-	return interfaces, nil
-}
-
-// CollectInstalledSoftware collects information about installed software
-func (sc *SystemCollector) CollectInstalledSoftware() ([]map[string]interface{}, error) {
-	// This would typically query the Windows Registry
-	// For now, return basic software info
-	software := []map[string]interface{}{
-		{
-			"name":         "Windows Security Agent",
-			"version":      "1.0.0",
-			"publisher":    "Security Team",
-			"install_date": time.Now().AddDate(0, 0, -30),
-		},
-	}
-
-	return software, nil
-}
-
-// CollectSystemEvents collects system events from Windows Event Log
-func (sc *SystemCollector) CollectSystemEvents() ([]map[string]interface{}, error) {
-	// This would typically query the Windows Event Log
-	// For now, return basic system events
-	events := []map[string]interface{}{
-		{
-			"source":    "System",
-			"event_id":  1001,
-			"level":     "Information",
-			"message":   "System started successfully",
-			"timestamp": time.Now(),
-		},
-	}
-
-	return events, nil
-}
-
 // GetSystemHealth calculates overall system health score
 func (sc *SystemCollector) GetSystemHealth() (float64, error) {
 	info, err := sc.CollectSystemInfo()
@@ -327,3 +231,99 @@ func (sc *SystemCollector) getProcessCount() (int, error) {
 	// This is a simplified version - would typically use gopsutil/process
 	return 100, nil
 }
+
+// CollectDiskInfo collects detailed disk information
+// func (sc *SystemCollector) CollectDiskInfo() ([]map[string]interface{}, error) {
+// 	var diskInfos []map[string]interface{}
+
+// 	partitions, err := disk.Partitions(false)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	for _, partition := range partitions {
+// 		if sc.shouldSkipPartition(partition) {
+// 			continue
+// 		}
+
+// 		usage, err := disk.Usage(partition.Mountpoint)
+// 		if err != nil {
+// 			continue
+// 		}
+
+// 		diskInfo := map[string]interface{}{
+// 			"device":              partition.Device,
+// 			"mountpoint":          partition.Mountpoint,
+// 			"fstype":              partition.Fstype,
+// 			"total":               usage.Total,
+// 			"used":                usage.Used,
+// 			"free":                usage.Free,
+// 			"usage_percent":       usage.UsedPercent,
+// 			"inodes_total":        usage.InodesTotal,
+// 			"inodes_used":         usage.InodesUsed,
+// 			"inodes_free":         usage.InodesFree,
+// 			"inodes_used_percent": usage.InodesUsedPercent,
+// 		}
+
+// 		diskInfos = append(diskInfos, diskInfo)
+// 	}
+
+// 	return diskInfos, nil
+// }
+
+// CollectNetworkInterfaces collects network interface information
+// func (sc *SystemCollector) CollectNetworkInterfaces() ([]map[string]interface{}, error) {
+// 	// This would typically use gopsutil/net package
+// 	// For now, return basic interface info
+// 	interfaces := []map[string]interface{}{
+// 		{
+// 			"name":        "Ethernet",
+// 			"type":        "wired",
+// 			"status":      "up",
+// 			"speed":       1000,
+// 			"mac_address": "00:00:00:00:00:00",
+// 		},
+// 		{
+// 			"name":        "Wi-Fi",
+// 			"type":        "wireless",
+// 			"status":      "up",
+// 			"speed":       300,
+// 			"mac_address": "00:00:00:00:00:01",
+// 		},
+// 	}
+
+// 	return interfaces, nil
+// }
+
+// CollectInstalledSoftware collects information about installed software
+// func (sc *SystemCollector) CollectInstalledSoftware() ([]map[string]interface{}, error) {
+// 	// This would typically query the Windows Registry
+// 	// For now, return basic software info
+// 	software := []map[string]interface{}{
+// 		{
+// 			"name":         "Windows Security Agent",
+// 			"version":      "1.0.0",
+// 			"publisher":    "Security Team",
+// 			"install_date": time.Now().AddDate(0, 0, -30),
+// 		},
+// 	}
+
+// 	return software, nil
+// }
+
+// CollectSystemEvents collects system events from Windows Event Log
+// func (sc *SystemCollector) CollectSystemEvents() ([]map[string]interface{}, error) {
+// 	// This would typically query the Windows Event Log
+// 	// For now, return basic system events
+// 	events := []map[string]interface{}{
+// 		{
+// 			"source":    "System",
+// 			"event_id":  1001,
+// 			"level":     "Information",
+// 			"message":   "System started successfully",
+// 			"timestamp": time.Now(),
+// 		},
+// 	}
+
+// 	return events, nil
+// }

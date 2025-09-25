@@ -316,19 +316,19 @@ func (nc *NetworkCollector) getConnectionCounters(conn net.ConnectionStat) (net.
 }
 
 // GetConnectionCount returns the number of active connections
-func (nc *NetworkCollector) GetConnectionCount() (int, error) {
-	conns, err := net.Connections("all")
-	if err != nil {
-		return 0, fmt.Errorf("failed to get connection count: %v", err)
-	}
-	count := 0
-	for _, conn := range conns {
-		if conn.Pid != 0 && conn.Status != "CLOSE" && conn.Status != "NONE" {
-			count++
-		}
-	}
-	return count, nil
-}
+// func (nc *NetworkCollector) GetConnectionCount() (int, error) {
+// 	conns, err := net.Connections("all")
+// 	if err != nil {
+// 		return 0, fmt.Errorf("failed to get connection count: %v", err)
+// 	}
+// 	count := 0
+// 	for _, conn := range conns {
+// 		if conn.Pid != 0 && conn.Status != "CLOSE" && conn.Status != "NONE" {
+// 			count++
+// 		}
+// 	}
+// 	return count, nil
+// }
 
 // CleanupOldConnections removes old entries from the recent connections map
 func (nc *NetworkCollector) CleanupOldConnections() {
@@ -341,36 +341,36 @@ func (nc *NetworkCollector) CleanupOldConnections() {
 }
 
 // DetectSuspiciousConnections identifies potentially suspicious network activity
-func (nc *NetworkCollector) DetectSuspiciousConnections() ([]models.NetworkEvent, error) {
-	var suspiciousEvents []models.NetworkEvent
-	conns, err := net.Connections("all")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connections for analysis: %v", err)
-	}
+// func (nc *NetworkCollector) DetectSuspiciousConnections() ([]models.NetworkEvent, error) {
+// 	var suspiciousEvents []models.NetworkEvent
+// 	conns, err := net.Connections("all")
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get connections for analysis: %v", err)
+// 	}
 
-	now := time.Now()
-	for _, conn := range conns {
-		if conn.Pid == 0 || conn.Status == "CLOSE" || conn.Status != "ESTABLISHED" {
-			continue
-		}
+// 	now := time.Now()
+// 	for _, conn := range conns {
+// 		if conn.Pid == 0 || conn.Status == "CLOSE" || conn.Status != "ESTABLISHED" {
+// 			continue
+// 		}
 
-		ncConn := NetworkConnection{
-			LocalIP:    conn.Laddr.IP,
-			LocalPort:  int(conn.Laddr.Port),
-			RemoteIP:   conn.Raddr.IP,
-			RemotePort: int(conn.Raddr.Port),
-			Protocol:   connTypeToString(conn.Type),
-			PID:        conn.Pid,
-		}
+// 		ncConn := NetworkConnection{
+// 			LocalIP:    conn.Laddr.IP,
+// 			LocalPort:  int(conn.Laddr.Port),
+// 			RemoteIP:   conn.Raddr.IP,
+// 			RemotePort: int(conn.Raddr.Port),
+// 			Protocol:   connTypeToString(conn.Type),
+// 			PID:        conn.Pid,
+// 		}
 
-		// Check if connection is suspicious (e.g., high ports or high data)
-		severity := nc.determineNetworkSeverity(ncConn)
-		if severity == "medium" || severity == "high" {
-			event := nc.createNetworkEvent(ncConn, now)
-			suspiciousEvents = append(suspiciousEvents, *event)
-		}
-	}
+// 		// Check if connection is suspicious (e.g., high ports or high data)
+// 		severity := nc.determineNetworkSeverity(ncConn)
+// 		if severity == "medium" || severity == "high" {
+// 			event := nc.createNetworkEvent(ncConn, now)
+// 			suspiciousEvents = append(suspiciousEvents, *event)
+// 		}
+// 	}
 
-	nc.logger.Infof("Detected %d suspicious network events", len(suspiciousEvents))
-	return suspiciousEvents, nil
-}
+// 	nc.logger.Infof("Detected %d suspicious network events", len(suspiciousEvents))
+// 	return suspiciousEvents, nil
+// }
