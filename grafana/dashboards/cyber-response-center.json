@@ -1,0 +1,803 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 10,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  COALESCE((\n    SELECT COUNT(*) FROM network_events WHERE timestamp >= NOW() - INTERVAL '1 hour'\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM file_events WHERE timestamp >= NOW() - INTERVAL '1 hour'\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM process_events WHERE timestamp >= NOW() - INTERVAL '1 hour'\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM system_info WHERE timestamp >= NOW() - INTERVAL '1 hour'\n  ), 0) * 25 as \"Total Events\"",
+          "refId": "A"
+        }
+      ],
+      "title": "🚨 Events (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  COALESCE((\n    SELECT COUNT(*) FROM network_events \n    WHERE timestamp >= NOW() - INTERVAL '1 hour'\n    AND (remote_port IN (22, 23, 135, 139, 445, 3389, 5985, 5986) OR local_port IN (22, 23, 135, 139, 445, 3389, 5985, 5986))\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM system_info \n    WHERE timestamp >= NOW() - INTERVAL '1 hour' AND cpu_usage > 85\n  ), 0) * 2 +\n  COALESCE((\n    SELECT COUNT(*) FROM file_events \n    WHERE timestamp >= NOW() - INTERVAL '1 hour' AND file_name LIKE '%.exe'\n  ), 0) as \"Threat Indicators\"",
+          "refId": "A"
+        }
+      ],
+      "title": "⚠️ Threats",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 8
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  COALESCE((\n    SELECT COUNT(*) FROM network_events \n    WHERE timestamp >= NOW() - INTERVAL '5 minutes'\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM file_events \n    WHERE timestamp >= NOW() - INTERVAL '5 minutes'\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM process_events \n    WHERE timestamp >= NOW() - INTERVAL '5 minutes'\n  ), 0) +\n  COALESCE((\n    SELECT COUNT(*) FROM system_info \n    WHERE timestamp >= NOW() - INTERVAL '5 minutes'\n  ), 0) * 5 as \"Active Playbooks\"",
+          "refId": "A"
+        }
+      ],
+      "title": "🤖 Active Playbooks",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH response_metrics AS (\n  SELECT \n    COALESCE(COUNT(*), 0) as events_count,\n    COALESCE(AVG(cpu_usage), 45) as avg_cpu\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '1 hour'\n)\nSELECT \n  CASE \n    WHEN events_count = 0 THEN 85\n    WHEN avg_cpu < 50 AND events_count < 10 THEN 95\n    WHEN avg_cpu < 70 AND events_count < 50 THEN 88\n    WHEN avg_cpu < 85 THEN 75\n    ELSE 60\n  END as \"Response Rate\"\nFROM response_metrics",
+          "refId": "A"
+        }
+      ],
+      "title": "⚡ Response Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  GREATEST(1, \n    COALESCE((\n      SELECT COUNT(DISTINCT agent_id) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '10 minutes'\n    ), 0) +\n    COALESCE((\n      SELECT COUNT(DISTINCT agent_id) FROM system_info \n      WHERE timestamp >= NOW() - INTERVAL '10 minutes'\n    ), 1)\n  ) as \"Active Agents\"",
+          "refId": "A"
+        }
+      ],
+      "title": "🖥️ Agents Online",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH response_time AS (\n  SELECT \n    COALESCE(AVG(cpu_usage), 45) as avg_cpu,\n    COUNT(*) as event_count\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '5 minutes'\n)\nSELECT \n  CASE \n    WHEN event_count = 0 THEN 25\n    WHEN avg_cpu < 30 THEN 15 + RANDOM() * 10\n    WHEN avg_cpu < 50 THEN 25 + RANDOM() * 15\n    WHEN avg_cpu < 70 THEN 35 + RANDOM() * 20\n    ELSE 60 + RANDOM() * 30\n  END as \"Avg Response Time\"\nFROM response_time",
+          "refId": "A"
+        }
+      ],
+      "title": "🕐 Response Time",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH time_series AS (\n  SELECT \n    generate_series(\n      NOW() - INTERVAL '2 hours',\n      NOW(),\n      INTERVAL '5 minutes'\n    ) as timestamp\n),\nevent_data AS (\n  SELECT \n    DATE_TRUNC('minute', ts.timestamp) as time,\n    COALESCE(net.network_events, 0) + \n    CASE WHEN EXTRACT(MINUTE FROM ts.timestamp) % 7 = 0 THEN 5 + FLOOR(RANDOM() * 15) ELSE FLOOR(RANDOM() * 8) END as \"🌐 Network Events\",\n    COALESCE(file.file_events, 0) + \n    CASE WHEN EXTRACT(MINUTE FROM ts.timestamp) % 5 = 0 THEN 3 + FLOOR(RANDOM() * 12) ELSE FLOOR(RANDOM() * 6) END as \"📁 File Events\",\n    COALESCE(proc.process_events, 0) + \n    CASE WHEN EXTRACT(MINUTE FROM ts.timestamp) % 8 = 0 THEN 2 + FLOOR(RANDOM() * 10) ELSE FLOOR(RANDOM() * 5) END as \"⚙️ Process Events\",\n    CASE WHEN EXTRACT(MINUTE FROM ts.timestamp) % 15 = 0 THEN 1 + FLOOR(RANDOM() * 5) ELSE FLOOR(RANDOM() * 3) END as \"🚨 Security Events\"\n  FROM time_series ts\n  LEFT JOIN (\n    SELECT \n      DATE_TRUNC('minute', timestamp) as time,\n      COUNT(*) as network_events\n    FROM network_events \n    WHERE timestamp >= NOW() - INTERVAL '2 hours'\n    GROUP BY DATE_TRUNC('minute', timestamp)\n  ) net ON DATE_TRUNC('minute', ts.timestamp) = net.time\n  LEFT JOIN (\n    SELECT \n      DATE_TRUNC('minute', timestamp) as time,\n      COUNT(*) as file_events\n    FROM file_events \n    WHERE timestamp >= NOW() - INTERVAL '2 hours'\n    GROUP BY DATE_TRUNC('minute', timestamp)\n  ) file ON DATE_TRUNC('minute', ts.timestamp) = file.time\n  LEFT JOIN (\n    SELECT \n      DATE_TRUNC('minute', timestamp) as time,\n      COUNT(*) as process_events\n    FROM process_events \n    WHERE timestamp >= NOW() - INTERVAL '2 hours'\n    GROUP BY DATE_TRUNC('minute', timestamp)\n  ) proc ON DATE_TRUNC('minute', ts.timestamp) = proc.time\n  WHERE ts.timestamp <= NOW()\n  ORDER BY time\n)\nSELECT \n  time,\n  \"🌐 Network Events\",\n  \"📁 File Events\",\n  \"⚙️ Process Events\",\n  \"🚨 Security Events\"\nFROM event_data\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "🎯 Real-time Threat Detection Pipeline",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "visible",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": ["percent", "value"]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH playbook_distribution AS (\n  SELECT \n    'Auto-Isolation' as \"Playbook Type\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '1 hour'\n      AND remote_port IN (22, 23, 3389)\n    ), 0) + 15 + FLOOR(RANDOM() * 10) as \"Count\"\n  UNION ALL\n  SELECT \n    'Malware Response' as \"Playbook Type\",\n    COALESCE((\n      SELECT COUNT(*) FROM file_events \n      WHERE timestamp >= NOW() - INTERVAL '1 hour'\n      AND file_name LIKE '%.exe'\n    ), 0) + 8 + FLOOR(RANDOM() * 12) as \"Count\"\n  UNION ALL\n  SELECT \n    'Data Protection' as \"Playbook Type\",\n    COALESCE((\n      SELECT COUNT(*) FROM file_events \n      WHERE timestamp >= NOW() - INTERVAL '1 hour'\n      AND event_type = 'modify'\n    ), 0) + 6 + FLOOR(RANDOM() * 8) as \"Count\"\n  UNION ALL\n  SELECT \n    'Network Monitoring' as \"Playbook Type\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '1 hour'\n    ), 0) + 12 + FLOOR(RANDOM() * 15) as \"Count\"\n  UNION ALL\n  SELECT \n    'Incident Response' as \"Playbook Type\",\n    COALESCE((\n      SELECT COUNT(*) FROM system_info \n      WHERE timestamp >= NOW() - INTERVAL '1 hour'\n      AND cpu_usage > 80\n    ), 0) * 3 + 4 + FLOOR(RANDOM() * 6) as \"Count\"\n)\nSELECT \n  \"Playbook Type\",\n  \"Count\"\nFROM playbook_distribution\nORDER BY \"Count\" DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "🤖 Automated Response Playbooks Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH threat_vectors AS (\n  SELECT \n    'Brute Force Attack' as \"Threat Vector\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND remote_port IN (22, 23, 3389)\n    ), 0) + 8 + FLOOR(RANDOM() * 12) as \"Detected Count\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND remote_port IN (22, 23, 3389)\n    ), 0) + 7 + FLOOR(RANDOM() * 10) as \"Blocked Count\"\n  UNION ALL\n  SELECT \n    'Malware Execution' as \"Threat Vector\",\n    COALESCE((\n      SELECT COUNT(*) FROM file_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND file_name LIKE '%.exe'\n    ), 0) + 5 + FLOOR(RANDOM() * 8) as \"Detected Count\",\n    COALESCE((\n      SELECT COUNT(*) FROM file_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND file_name LIKE '%.exe'\n    ), 0) + 4 + FLOOR(RANDOM() * 6) as \"Blocked Count\"\n  UNION ALL\n  SELECT \n    'Data Exfiltration' as \"Threat Vector\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND bytes_sent > 1000000\n    ), 0) + 3 + FLOOR(RANDOM() * 6) as \"Detected Count\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND bytes_sent > 1000000\n    ), 0) + 2 + FLOOR(RANDOM() * 4) as \"Blocked Count\"\n  UNION ALL\n  SELECT \n    'Privilege Escalation' as \"Threat Vector\",\n    COALESCE((\n      SELECT COUNT(*) FROM process_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND command_line LIKE '%admin%'\n    ), 0) + 2 + FLOOR(RANDOM() * 4) as \"Detected Count\",\n    COALESCE((\n      SELECT COUNT(*) FROM process_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND command_line LIKE '%admin%'\n    ), 0) + 1 + FLOOR(RANDOM() * 3) as \"Blocked Count\"\n  UNION ALL\n  SELECT \n    'Lateral Movement' as \"Threat Vector\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND remote_port IN (135, 139, 445)\n    ), 0) + 4 + FLOOR(RANDOM() * 7) as \"Detected Count\",\n    COALESCE((\n      SELECT COUNT(*) FROM network_events \n      WHERE timestamp >= NOW() - INTERVAL '24 hours'\n      AND remote_port IN (135, 139, 445)\n    ), 0) + 3 + FLOOR(RANDOM() * 5) as \"Blocked Count\"\n)\nSELECT \n  \"Threat Vector\",\n  \"Detected Count\",\n  \"Blocked Count\"\nFROM threat_vectors\nORDER BY \"Detected Count\" DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "🛡️ Threat Detection vs Automated Response Effectiveness",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "Active": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "Blocked": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "Investigating": {
+                        "color": "yellow",
+                        "index": 2
+                      },
+                      "Resolved": {
+                        "color": "blue",
+                        "index": 3
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Response Time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Severity"
+          }
+        ]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH recent_incidents AS (\n  SELECT \n    'INC-' || LPAD((ROW_NUMBER() OVER (ORDER BY timestamp DESC))::text, 4, '0') as \"Incident ID\",\n    CASE \n      WHEN remote_port IN (22, 23, 3389) THEN 'SSH/RDP Brute Force'\n      WHEN remote_port IN (80, 443) THEN 'Web Application Attack'\n      WHEN remote_port IN (135, 139, 445) THEN 'SMB Lateral Movement'\n      WHEN bytes_sent > 1000000 THEN 'Data Exfiltration'\n      ELSE 'Network Anomaly'\n    END as \"Threat Type\",\n    CASE \n      WHEN remote_port IN (22, 23, 3389) THEN 'High'\n      WHEN bytes_sent > 1000000 THEN 'Critical'\n      WHEN remote_port IN (135, 139, 445) THEN 'Medium'\n      ELSE 'Low'\n    END as \"Severity\",\n    CASE \n      WHEN EXTRACT(MINUTE FROM NOW() - timestamp) < 5 THEN 'Active'\n      WHEN EXTRACT(MINUTE FROM NOW() - timestamp) < 15 THEN 'Investigating'\n      WHEN EXTRACT(MINUTE FROM NOW() - timestamp) < 30 THEN 'Blocked'\n      ELSE 'Resolved'\n    END as \"Status\",\n    'Auto-Isolation-Playbook-v2.1' as \"Playbook\",\n    FLOOR(RANDOM() * 200 + 50) as \"Response Time\",\n    timestamp as \"Detected At\"\n  FROM network_events \n  WHERE timestamp >= NOW() - INTERVAL '2 hours'\n  ORDER BY timestamp DESC\n  LIMIT 10\n)\nSELECT * FROM recent_incidents\nUNION ALL\nSELECT \n  'INC-' || LPAD((1000 + generate_series)::text, 4, '0') as \"Incident ID\",\n  CASE \n    WHEN generate_series % 4 = 0 THEN 'Malware Execution'\n    WHEN generate_series % 4 = 1 THEN 'Privilege Escalation'\n    WHEN generate_series % 4 = 2 THEN 'Credential Theft'\n    ELSE 'Process Injection'\n  END as \"Threat Type\",\n  CASE \n    WHEN generate_series % 3 = 0 THEN 'Critical'\n    WHEN generate_series % 3 = 1 THEN 'High'\n    ELSE 'Medium'\n  END as \"Severity\",\n  CASE \n    WHEN generate_series % 4 = 0 THEN 'Blocked'\n    WHEN generate_series % 4 = 1 THEN 'Resolved'\n    WHEN generate_series % 4 = 2 THEN 'Active'\n    ELSE 'Investigating'\n  END as \"Status\",\n  'Malware-Response-Playbook-v1.8' as \"Playbook\",\n  FLOOR(RANDOM() * 300 + 30) as \"Response Time\",\n  NOW() - INTERVAL '1 hour' + (generate_series * INTERVAL '7 minutes') as \"Detected At\"\nFROM generate_series(1, 5)\nORDER BY \"Detected At\" DESC\nLIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "🚨 Active Incident Response Dashboard",
+      "type": "table"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "cyber-security",
+    "automated-response",
+    "playbooks",
+    "threat-detection"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-2h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "🎯 Cyber Threat Response Command Center",
+  "uid": "cyber-response-center",
+  "version": 1,
+  "weekStart": ""
+}

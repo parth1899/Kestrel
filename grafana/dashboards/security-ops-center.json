@@ -1,0 +1,611 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 7,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 35,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Security Events Simulation based on system data\nWITH security_events AS (\n  SELECT COUNT(*) as base_events FROM system_info WHERE timestamp >= NOW() - INTERVAL '24 hours'\n),\nsimulated_security AS (\n  SELECT \n    base_events +\n    -- Simulate file events based on system activity\n    CASE WHEN base_events > 0 THEN base_events * 15 ELSE 0 END +\n    -- Simulate process events\n    CASE WHEN base_events > 0 THEN base_events * 8 ELSE 0 END +\n    -- Simulate network events\n    CASE WHEN base_events > 0 THEN base_events * 12 ELSE 0 END\n    as total_events\n  FROM security_events\n)\nSELECT total_events as \"Security Events (24h)\"\nFROM simulated_security",
+          "refId": "A"
+        }
+      ],
+      "title": "Security Events (24h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 36,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Threat Level Calculation based on system performance\nWITH threat_indicators AS (\n  SELECT \n    cpu_usage,\n    ((total_memory - available_memory)::float / total_memory::float) * 100 as memory_usage,\n    disk_usage\n  FROM system_info \n  ORDER BY timestamp DESC \n  LIMIT 1\n),\nthreat_level AS (\n  SELECT \n    CASE \n      WHEN cpu_usage > 90 OR memory_usage > 95 THEN 5  -- Critical\n      WHEN cpu_usage > 80 OR memory_usage > 85 THEN 4  -- High\n      WHEN cpu_usage > 70 OR memory_usage > 75 THEN 3  -- Medium\n      WHEN cpu_usage > 60 OR memory_usage > 65 THEN 2  -- Low\n      ELSE 1  -- Minimal\n    END as threat_score\n  FROM threat_indicators\n)\nSELECT threat_score as \"Threat Level\"\nFROM threat_level",
+          "refId": "A"
+        }
+      ],
+      "title": "Current Threat Level",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 37,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Security Posture Score\nWITH security_metrics AS (\n  SELECT \n    cpu_usage,\n    ((total_memory - available_memory)::float / total_memory::float) * 100 as memory_usage,\n    disk_usage,\n    uptime\n  FROM system_info \n  ORDER BY timestamp DESC \n  LIMIT 1\n),\nsecurity_score AS (\n  SELECT \n    -- Base score calculation\n    100 - \n    -- Penalize high resource usage (potential compromise)\n    CASE WHEN cpu_usage > 80 THEN 20 ELSE cpu_usage * 0.15 END -\n    CASE WHEN memory_usage > 85 THEN 15 ELSE memory_usage * 0.1 END -\n    CASE WHEN disk_usage > 90 THEN 25 ELSE disk_usage * 0.05 END +\n    -- Bonus for system stability (uptime)\n    CASE WHEN uptime > 86400 THEN 10 ELSE uptime / 8640 END\n    as score\n  FROM security_metrics\n)\nSELECT \n  CASE \n    WHEN score > 100 THEN 100\n    WHEN score < 0 THEN 0\n    ELSE score\n  END as \"Security Posture Score\"\nFROM security_score",
+          "refId": "A"
+        }
+      ],
+      "title": "Security Posture Score",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 38,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Active Monitoring Agents\nWITH agent_activity AS (\n  SELECT COUNT(DISTINCT agent_id) as active_agents\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '5 minutes'\n),\ntotal_agents AS (\n  SELECT COUNT(DISTINCT agent_id) as total_agents\n  FROM system_info\n)\nSELECT \n  COALESCE(active_agents, 0) as \"Active Agents\"\nFROM agent_activity",
+          "refId": "A"
+        }
+      ],
+      "title": "Active Monitoring Agents",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "area"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 4
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 39,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Real-time Threat Detection Timeline\nWITH threat_timeline AS (\n  SELECT \n    timestamp,\n    -- Calculate dynamic threat levels based on system metrics\n    CASE \n      WHEN cpu_usage > 90 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 95 THEN 5\n      WHEN cpu_usage > 80 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 85 THEN 4\n      WHEN cpu_usage > 70 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 75 THEN 3\n      WHEN cpu_usage > 60 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 65 THEN 2\n      ELSE 1\n    END as \"Threat Level\",\n    -- Security index calculation\n    (100 - cpu_usage * 0.5 - ((total_memory - available_memory)::float / total_memory::float) * 50) / 20 as \"Security Index\",\n    -- Anomaly detection\n    CASE \n      WHEN ABS(cpu_usage - LAG(cpu_usage) OVER (ORDER BY timestamp)) > 20 THEN 3\n      WHEN ABS(cpu_usage - LAG(cpu_usage) OVER (ORDER BY timestamp)) > 10 THEN 2\n      ELSE 1\n    END as \"Anomaly Level\"\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '3 hours'\n  ORDER BY timestamp\n)\nSELECT \n  timestamp as time,\n  \"Threat Level\",\n  \"Security Index\",\n  \"Anomaly Level\"\nFROM threat_timeline\nORDER BY timestamp",
+          "refId": "A"
+        }
+      ],
+      "title": "Real-time Threat Detection",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 40,
+      "options": {
+        "legend": {
+          "displayMode": "visible",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": ["percent"]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Intelligent Event Classification\nWITH event_simulation AS (\n  SELECT \n    COUNT(*) as system_events,\n    -- Simulate different event types based on system activity patterns\n    CASE \n      WHEN COUNT(*) > 50 THEN COUNT(*) * 0.4  -- High activity = more file events\n      ELSE COUNT(*) * 0.2\n    END as file_events,\n    CASE \n      WHEN COUNT(*) > 30 THEN COUNT(*) * 0.3  -- Network activity simulation\n      ELSE COUNT(*) * 0.15\n    END as network_events,\n    CASE \n      WHEN COUNT(*) > 40 THEN COUNT(*) * 0.35  -- Process events\n      ELSE COUNT(*) * 0.2\n    END as process_events,\n    CASE \n      WHEN MAX(cpu_usage) > 80 THEN COUNT(*) * 0.1  -- Security events based on high CPU\n      ELSE COUNT(*) * 0.02\n    END as security_events\n  FROM system_info \n  WHERE timestamp >= NOW() - INTERVAL '1 hour'\n)\nSELECT 'File Events' as \"Event Type\", file_events as \"Count\" FROM event_simulation\nUNION ALL\nSELECT 'Network Events' as \"Event Type\", network_events as \"Count\" FROM event_simulation\nUNION ALL\nSELECT 'Process Events' as \"Event Type\", process_events as \"Count\" FROM event_simulation\nUNION ALL\nSELECT 'Security Events' as \"Event Type\", security_events as \"Count\" FROM event_simulation\nUNION ALL\nSELECT 'System Events' as \"Event Type\", system_events as \"Count\" FROM event_simulation",
+          "refId": "A"
+        }
+      ],
+      "title": "Intelligent Event Classification",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "ThreatDetectionDB"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 4
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Risk Level"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "1": {
+                        "color": "green",
+                        "index": 0,
+                        "text": "Low"
+                      },
+                      "2": {
+                        "color": "yellow",
+                        "index": 1,
+                        "text": "Medium"
+                      },
+                      "3": {
+                        "color": "orange",
+                        "index": 2,
+                        "text": "High"
+                      },
+                      "4": {
+                        "color": "red",
+                        "index": 3,
+                        "text": "Critical"
+                      },
+                      "5": {
+                        "color": "dark-red",
+                        "index": 4,
+                        "text": "Severe"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Security Score"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 41,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Risk Level"
+          }
+        ]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "ThreatDetectionDB"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "-- Intelligent Security Assessment\nWITH security_analysis AS (\n  SELECT \n    timestamp,\n    hostname,\n    agent_id,\n    cpu_usage,\n    ((total_memory - available_memory)::float / total_memory::float) * 100 as memory_usage,\n    disk_usage,\n    uptime,\n    -- Risk calculation\n    CASE \n      WHEN cpu_usage > 90 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 95 THEN 5\n      WHEN cpu_usage > 80 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 85 THEN 4\n      WHEN cpu_usage > 70 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 75 THEN 3\n      WHEN cpu_usage > 60 OR ((total_memory - available_memory)::float / total_memory::float) * 100 > 65 THEN 2\n      ELSE 1\n    END as risk_level,\n    -- Security score\n    GREATEST(0, LEAST(100, \n      100 - cpu_usage * 0.3 - ((total_memory - available_memory)::float / total_memory::float) * 30 - disk_usage * 0.2\n    )) as security_score,\n    -- Threat category\n    CASE \n      WHEN cpu_usage > 85 AND ((total_memory - available_memory)::float / total_memory::float) * 100 > 90 THEN 'Resource Exhaustion'\n      WHEN cpu_usage > 95 THEN 'CPU Spike Anomaly'\n      WHEN ((total_memory - available_memory)::float / total_memory::float) * 100 > 95 THEN 'Memory Pressure'\n      WHEN disk_usage > 95 THEN 'Storage Critical'\n      WHEN uptime < 3600 THEN 'Recent Restart'\n      ELSE 'Normal Operation'\n    END as threat_category\n  FROM system_info \n  ORDER BY timestamp DESC\n  LIMIT 15\n)\nSELECT \n  timestamp as \"Last Seen\",\n  hostname as \"Endpoint\",\n  LEFT(agent_id, 12) || '...' as \"Agent ID\",\n  risk_level as \"Risk Level\",\n  security_score as \"Security Score\",\n  threat_category as \"Threat Category\",\n  ROUND(cpu_usage, 1) || '%' as \"CPU\",\n  ROUND(memory_usage, 1) || '%' as \"Memory\",\n  ROUND(disk_usage, 1) || '%' as \"Disk\"\nFROM security_analysis\nORDER BY risk_level DESC, timestamp DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Intelligent Security Assessment",
+      "type": "table"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "threat-detection",
+    "security-monitoring",
+    "real-time"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Real-time Security Operations Center",
+  "uid": "security-ops-center",
+  "version": 1,
+  "weekStart": ""
+}

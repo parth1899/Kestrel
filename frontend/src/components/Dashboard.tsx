@@ -13,7 +13,7 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold text-white">Endpoint Security Platform</h1>
         <div className="text-right">
           <div className="text-sm text-gray-400">Cloud & On-Prem Resources</div>
-          <div className="text-lg font-semibold text-blue-400">SecureShield</div>
+          <div className="text-lg font-semibold text-blue-400">Kestrel</div>
         </div>
       </header>
 
