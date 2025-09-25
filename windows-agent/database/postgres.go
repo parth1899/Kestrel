@@ -8,7 +8,8 @@ import (
 
 	"windows-agent/config"
 
-	_ "github.com/lib/pq"
+	// use pgx stdlib to improve compatibility with pooled Postgres (Neon/pgbouncer)
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type PostgresDB struct {
@@ -17,10 +18,12 @@ type PostgresDB struct {
 
 // NewPostgresDB creates a new PostgreSQL database connection
 func NewPostgresDB(config *config.DatabaseConfig) (*PostgresDB, error) {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+	// Use simple protocol to avoid server-side prepared statement caching issues
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s prefer_simple_protocol=true",
 		config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
 
-	db, err := sql.Open("postgres", psqlInfo)
+	// use pgx driver registered by github.com/jackc/pgx/v5/stdlib
+	db, err := sql.Open("pgx", psqlInfo)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)
 	}
@@ -47,68 +50,81 @@ func (p *PostgresDB) Close() error {
 func (p *PostgresDB) InitTables() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS telemetry_events (
-			id VARCHAR(255) PRIMARY KEY,
-			agent_id VARCHAR(255) NOT NULL,
-			event_type VARCHAR(100) NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			severity VARCHAR(50) NOT NULL,
-			data JSONB,
-			processed BOOLEAN DEFAULT FALSE,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
+	       id VARCHAR(255) PRIMARY KEY,
+	       agent_id VARCHAR(255) NOT NULL,
+	       event_type VARCHAR(100) NOT NULL,
+	       timestamp TIMESTAMP NOT NULL,
+	       severity VARCHAR(50) NOT NULL,
+	       data JSONB,
+	       processed BOOLEAN DEFAULT FALSE,
+	       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	       )`,
+		`CREATE TABLE IF NOT EXISTS alerts (
+	       id SERIAL PRIMARY KEY,
+	       event_id VARCHAR(255) NOT NULL,
+	       indicator VARCHAR(255) NOT NULL,
+	       indicator_type VARCHAR(100) NOT NULL,
+	       threat_info TEXT,
+	       severity VARCHAR(50) NOT NULL,
+	       status VARCHAR(50) NOT NULL,
+	       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	       )`,
 		`CREATE TABLE IF NOT EXISTS process_events (
-			id VARCHAR(255) PRIMARY KEY,
-			agent_id VARCHAR(255) NOT NULL,
-			process_id INTEGER NOT NULL,
-			parent_process_id INTEGER,
-			process_name VARCHAR(500) NOT NULL,
-			command_line TEXT,
-			executable_path VARCHAR(1000),
-			username VARCHAR(255),
-			start_time TIMESTAMP,
-			end_time TIMESTAMP,
-			cpu_usage DECIMAL(10,2),
-			memory_usage BIGINT,
-			event_type VARCHAR(100) NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			severity VARCHAR(50) NOT NULL,
-			hash VARCHAR(255),
-			signature TEXT,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
+			   id VARCHAR(255) PRIMARY KEY,
+			   agent_id VARCHAR(255) NOT NULL,
+			   process_id INTEGER NOT NULL,
+			   parent_process_id INTEGER,
+			   process_name VARCHAR(500) NOT NULL,
+			   command_line TEXT,
+			   executable_path VARCHAR(1000),
+			   username VARCHAR(255),
+			   start_time TIMESTAMP,
+			   end_time TIMESTAMP,
+			   cpu_usage DECIMAL(10,2),
+			   memory_usage BIGINT,
+			   event_type VARCHAR(100) NOT NULL,
+			   timestamp TIMESTAMP NOT NULL,
+			   severity VARCHAR(50) NOT NULL,
+			   hash VARCHAR(255),
+			   signature TEXT,
+			   is_scanned BOOLEAN DEFAULT FALSE,
+			   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		   )`,
 		`CREATE TABLE IF NOT EXISTS file_events (
-			id VARCHAR(255) PRIMARY KEY,
-			agent_id VARCHAR(255) NOT NULL,
-			process_id INTEGER,
-			process_name VARCHAR(500),
-			file_path VARCHAR(1000) NOT NULL,
-			file_name VARCHAR(500) NOT NULL,
-			event_type VARCHAR(100) NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			severity VARCHAR(50) NOT NULL,
-			file_size BIGINT,
-			file_hash VARCHAR(255),
-			file_type VARCHAR(100),
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
+			   id VARCHAR(255) PRIMARY KEY,
+			   agent_id VARCHAR(255) NOT NULL,
+			   process_id INTEGER,
+			   process_name VARCHAR(500),
+			   file_path VARCHAR(1000) NOT NULL,
+			   file_name VARCHAR(500) NOT NULL,
+			   event_type VARCHAR(100) NOT NULL,
+			   timestamp TIMESTAMP NOT NULL,
+			   severity VARCHAR(50) NOT NULL,
+			   file_size BIGINT,
+			   file_hash VARCHAR(255),
+			   file_type VARCHAR(100),
+			   is_scanned BOOLEAN DEFAULT FALSE,
+			   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		   )`,
 		`CREATE TABLE IF NOT EXISTS network_events (
-			id VARCHAR(255) PRIMARY KEY,
-			agent_id VARCHAR(255) NOT NULL,
-			process_id INTEGER,
-			process_name VARCHAR(500),
-			local_ip VARCHAR(45) NOT NULL,
-			local_port INTEGER NOT NULL,
-			remote_ip VARCHAR(45),
-			remote_port INTEGER,
-			protocol VARCHAR(10) NOT NULL,
-			event_type VARCHAR(100) NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			severity VARCHAR(50) NOT NULL,
-			bytes_sent BIGINT,
-			bytes_received BIGINT,
-			connection_id VARCHAR(255),
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
+			   id VARCHAR(255) PRIMARY KEY,
+			   agent_id VARCHAR(255) NOT NULL,
+			   process_id INTEGER,
+			   process_name VARCHAR(500),
+			   local_ip VARCHAR(45) NOT NULL,
+			   local_port INTEGER NOT NULL,
+			   remote_ip VARCHAR(45),
+			   remote_port INTEGER,
+			   protocol VARCHAR(10) NOT NULL,
+			   event_type VARCHAR(100) NOT NULL,
+			   timestamp TIMESTAMP NOT NULL,
+			   severity VARCHAR(50) NOT NULL,
+			   bytes_sent BIGINT,
+			   bytes_received BIGINT,
+			   connection_id VARCHAR(255),
+			   is_scanned BOOLEAN DEFAULT FALSE,
+			   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		   )`,
 		`CREATE TABLE IF NOT EXISTS system_info (
 			id VARCHAR(255) PRIMARY KEY,
 			agent_id VARCHAR(255) NOT NULL,
@@ -146,7 +162,47 @@ func (p *PostgresDB) InitTables() error {
 	}
 
 	log.Println("Database tables initialized successfully")
+
+	// Log prepared statements and active sessions for diagnostics (Neon/pgbouncer can cache prepared statements)
+	p.LogPreparedStatements()
 	return nil
+}
+
+// LogPreparedStatements logs prepared statements and active sessions for debugging
+func (p *PostgresDB) LogPreparedStatements() {
+	// prepared statements
+	rows, err := p.DB.Query("SELECT name, statement, prepare_time FROM pg_prepared_statements")
+	if err != nil {
+		log.Printf("could not query pg_prepared_statements: %v", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var name, stmt string
+			var t time.Time
+			if err := rows.Scan(&name, &stmt, &t); err != nil {
+				log.Printf("error scanning prepared statement row: %v", err)
+				continue
+			}
+			log.Printf("prepared_statement: name=%s time=%s stmt=%s", name, t.Format(time.RFC3339), stmt)
+		}
+	}
+
+	// active sessions
+	sarows, err := p.DB.Query("SELECT pid, usename, application_name, state, query FROM pg_stat_activity WHERE datname = current_database()")
+	if err != nil {
+		log.Printf("could not query pg_stat_activity: %v", err)
+		return
+	}
+	defer sarows.Close()
+	for sarows.Next() {
+		var pid int
+		var usename, appname, state, queryText string
+		if err := sarows.Scan(&pid, &usename, &appname, &state, &queryText); err != nil {
+			log.Printf("error scanning pg_stat_activity row: %v", err)
+			continue
+		}
+		log.Printf("pg_stat_activity: pid=%d user=%s app=%s state=%s query=%s", pid, usename, appname, state, queryText)
+	}
 }
 
 // CreateIndexes creates indexes for better query performance

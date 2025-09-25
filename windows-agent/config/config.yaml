@@ -6,12 +6,12 @@ agent:
   log_level: "info"
 
 database:
-  host: "localhost"
+  host: "ep-super-pine-a1glsjev-pooler.ap-southeast-1.aws.neon.tech"
   port: 5432
-  user: "postgres"
-  password: "12345678"
-  dbname: "endpoint_security"
-  sslmode: "disable"
+  user: "neondb_owner"
+  password: "npg_vsHuI17fBYML"
+  dbname: "neondb"
+  sslmode: "require"
 
 server:
   port: 8080

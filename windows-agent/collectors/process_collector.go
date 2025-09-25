@@ -215,7 +215,8 @@ func (pc *ProcessCollector) collectProcessInfo(proc *process.Process) (*models.P
 
 	// Get parent process ID
 	if ppid, err := proc.Ppid(); err == nil {
-		event.ParentProcessID = int(ppid)
+		v := int(ppid)
+		event.ParentProcessID = &v
 	}
 
 	// Get username
@@ -230,18 +231,19 @@ func (pc *ProcessCollector) collectProcessInfo(proc *process.Process) (*models.P
 
 	// Get memory usage
 	if memInfo, err := proc.MemoryInfo(); err == nil {
-		event.MemoryUsage = memInfo.RSS
+		event.MemoryUsage = int64(memInfo.RSS)
 	}
 
 	// Get start time
 	if createTime, err := proc.CreateTime(); err == nil {
-		event.StartTime = time.Unix(createTime/1000, 0)
+		t := time.Unix(createTime/1000, 0)
+		event.StartTime = &t
 	}
 
 	// Calculate file hash if executable exists
 	if event.ExecutablePath != "" {
 		if hash, err := pc.calculateFileHash(event.ExecutablePath); err == nil {
-			event.Hash = hash
+			event.Hash = &hash
 		}
 	}
 

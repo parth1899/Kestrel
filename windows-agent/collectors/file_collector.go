@@ -256,6 +256,10 @@ func (fc *FileCollector) isRecentlySeen(path string, currentTime time.Time) bool
 
 // createFileEvent creates a FileEvent from file information
 func (fc *FileCollector) createFileEvent(path string, info os.FileInfo, timestamp time.Time) *models.FileEvent {
+	// prepare pointer values for nullable fields
+	fs := info.Size()
+	ft := strings.ToLower(filepath.Ext(path))
+
 	event := &models.FileEvent{
 		ID:        utils.GenerateUUID(),
 		AgentID:   fc.agentID,
@@ -264,15 +268,15 @@ func (fc *FileCollector) createFileEvent(path string, info os.FileInfo, timestam
 		EventType: "monitor",
 		Timestamp: timestamp,
 		Severity:  fc.determineFileSeverity(path, info),
-		FileSize:  info.Size(),
-		FileType:  strings.ToLower(filepath.Ext(path)),
+		FileSize:  &fs,
+		FileType:  &ft,
 		CreatedAt: timestamp,
 	}
 
 	// Try to get file hash (this might be slow for large files)
 	if info.Size() < 100*1024*1024 { // Only hash files smaller than 100MB
 		if hash, err := fc.calculateFileHash(path); err == nil {
-			event.FileHash = hash
+			event.FileHash = &hash
 		}
 	}
 

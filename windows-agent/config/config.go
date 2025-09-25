@@ -5,17 +5,17 @@ import (
 )
 
 type Config struct {
-	Agent   AgentConfig   `mapstructure:"agent"`
+	Agent    AgentConfig    `mapstructure:"agent"`
 	Database DatabaseConfig `mapstructure:"database"`
 	Server   ServerConfig   `mapstructure:"server"`
 }
 
 type AgentConfig struct {
-	ID           string `mapstructure:"id"`
-	Name         string `mapstructure:"name"`
-	Version      string `mapstructure:"version"`
-	CollectorInterval int `mapstructure:"collector_interval"`
-	LogLevel    string `mapstructure:"log_level"`
+	ID                string `mapstructure:"id"`
+	Name              string `mapstructure:"name"`
+	Version           string `mapstructure:"version"`
+	CollectorInterval int    `mapstructure:"collector_interval"`
+	LogLevel          string `mapstructure:"log_level"`
 }
 
 type DatabaseConfig struct {
@@ -43,14 +43,14 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("agent.version", "1.0.0")
 	viper.SetDefault("agent.collector_interval", 30)
 	viper.SetDefault("agent.log_level", "info")
-	
-	viper.SetDefault("database.host", "localhost")
+
+	viper.SetDefault("database.host", "ep-super-pine-a1glsjev-pooler.ap-southeast-1.aws.neon.tech")
 	viper.SetDefault("database.port", 5432)
-	viper.SetDefault("database.user", "postgres")
-	viper.SetDefault("database.password", "password")
-	viper.SetDefault("database.dbname", "endpoint_security")
-	viper.SetDefault("database.sslmode", "disable")
-	
+	viper.SetDefault("database.user", "neondb_owner")
+	viper.SetDefault("database.password", "npg_vsHuI17fBYML")
+	viper.SetDefault("database.dbname", "neondb")
+	viper.SetDefault("database.sslmode", "require")
+
 	viper.SetDefault("server.port", 8080)
 
 	if err := viper.ReadInConfig(); err != nil {

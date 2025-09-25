@@ -68,13 +68,28 @@ func (nc *NetworkCollector) StartRealTimeMonitoring(ctx context.Context) {
 
 // pollNetworkConnections checks for new network connections
 func (nc *NetworkCollector) pollNetworkConnections() error {
-	currentConns, err := nc.getCurrentConnections()
-	if err != nil {
-		return err
+	// Sample connections multiple times quickly to capture transient connections
+	mergedConns := make(map[string]NetworkConnection)
+	samples := 3
+	sampleDelay := 200 * time.Millisecond
+
+	for i := 0; i < samples; i++ {
+		currentConns, err := nc.getCurrentConnections()
+		if err != nil {
+			// if one sample fails, continue with others
+			nc.logger.Debugf("connection sample %d failed: %v", i, err)
+		} else {
+			for k, v := range currentConns {
+				mergedConns[k] = v
+			}
+		}
+		if i < samples-1 {
+			time.Sleep(sampleDelay)
+		}
 	}
 
 	// Find new connections that weren't in previous state
-	for key, conn := range currentConns {
+	for key, conn := range mergedConns {
 		if _, exists := nc.previousConns[key]; !exists {
 			// This is a new connection
 			nc.handleNewConnection(conn)
@@ -82,7 +97,7 @@ func (nc *NetworkCollector) pollNetworkConnections() error {
 	}
 
 	// Update previous state
-	nc.previousConns = currentConns
+	nc.previousConns = mergedConns
 	return nil
 }
 
@@ -119,19 +134,27 @@ func (nc *NetworkCollector) getCurrentConnections() (map[string]NetworkConnectio
 func (nc *NetworkCollector) handleNewConnection(conn NetworkConnection) {
 	// Skip if recently seen
 	connKey := nc.generateConnectionKey(conn)
-	if nc.isRecentlySeen(connKey, time.Now()) {
-		return
-	}
-
 	// Create network event
 	event := nc.createNetworkEvent(conn, time.Now())
 	nc.recentConnections[connKey] = time.Now()
 
+	// Debug: log the generated IDs and connection key
+	if event != nil {
+		cid := "<nil>"
+		if event.ConnectionID != nil {
+			cid = *event.ConnectionID
+		}
+		nc.logger.Debugf("New connection detected - connKey=%s eventID=%s connectionID=%s pid=%v",
+			connKey, event.ID, cid, event.ProcessID)
+	} else {
+		nc.logger.Debug("New connection detected but event is nil")
+	}
+
 	// Send to channel
 	select {
 	case nc.networkChan <- *event:
-		nc.logger.Debugf("Sent network event: %s:%d -> %s:%d (%s)",
-			conn.LocalIP, conn.LocalPort, conn.RemoteIP, conn.RemotePort, conn.Protocol)
+		nc.logger.Debugf("Sent network event: %s:%d -> %s:%d (%s) eventID=%s",
+			conn.LocalIP, conn.LocalPort, conn.RemoteIP, conn.RemotePort, conn.Protocol, event.ID)
 	default:
 		nc.logger.Warn("Network event channel full, dropping event")
 	}
@@ -176,13 +199,9 @@ func (nc *NetworkCollector) CollectNetworkEvents() ([]models.NetworkEvent, error
 			ncConn.BytesRecv = counters.BytesRecv
 		}
 
-		// Skip if recently seen
+		// Create and store network event (do not dedupe by recentConnections so
+		// repeated short-lived connections are captured during testing)
 		connKey := nc.generateConnectionKey(ncConn)
-		if nc.isRecentlySeen(connKey, now) {
-			continue
-		}
-
-		// Create and store network event
 		event := nc.createNetworkEvent(ncConn, now)
 		events = append(events, *event)
 		nc.recentConnections[connKey] = now
@@ -217,36 +236,61 @@ func (nc *NetworkCollector) generateConnectionKey(conn NetworkConnection) string
 
 // isRecentlySeen checks if a connection was recently processed
 func (nc *NetworkCollector) isRecentlySeen(connKey string, currentTime time.Time) bool {
-	if lastSeen, exists := nc.recentConnections[connKey]; exists {
-		return currentTime.Sub(lastSeen) < 2*time.Minute
-	}
+	// Dedupe disabled for testing/short-lived connection capture. Keep the
+	// helper for backward compatibility but always return false so the
+	// collector records repeated connections.
 	return false
 }
 
 // createNetworkEvent creates a NetworkEvent from connection information
 func (nc *NetworkCollector) createNetworkEvent(conn NetworkConnection, timestamp time.Time) *models.NetworkEvent {
+	// prepare pointer values for nullable fields
+	var remoteIP *string
+	var remotePort *int
+	var bytesSent *int64
+	var bytesReceived *int64
+	connID := fmt.Sprintf("%s:%d-%s:%d-%s", conn.LocalIP, conn.LocalPort, conn.RemoteIP, conn.RemotePort, conn.Protocol)
+	cid := connID
+
+	if conn.RemoteIP != "" {
+		remoteIP = &conn.RemoteIP
+	}
+	if conn.RemotePort != 0 {
+		rp := conn.RemotePort
+		remotePort = &rp
+	}
+	if conn.BytesSent != 0 {
+		bs := int64(conn.BytesSent)
+		bytesSent = &bs
+	}
+	if conn.BytesRecv != 0 {
+		br := int64(conn.BytesRecv)
+		bytesReceived = &br
+	}
+
 	event := &models.NetworkEvent{
 		ID:            utils.GenerateUUID(),
 		AgentID:       nc.agentID,
 		LocalIP:       conn.LocalIP,
 		LocalPort:     conn.LocalPort,
-		RemoteIP:      conn.RemoteIP,
-		RemotePort:    conn.RemotePort,
+		RemoteIP:      remoteIP,
+		RemotePort:    remotePort,
 		Protocol:      conn.Protocol,
 		EventType:     "connect", // Default to connect for active connections
 		Timestamp:     timestamp,
 		Severity:      nc.determineNetworkSeverity(conn),
-		BytesSent:     int64(conn.BytesSent),
-		BytesReceived: int64(conn.BytesRecv),
-		ConnectionID:  fmt.Sprintf("%s:%d-%s:%d-%s", conn.LocalIP, conn.LocalPort, conn.RemoteIP, conn.RemotePort, conn.Protocol),
+		BytesSent:     bytesSent,
+		BytesReceived: bytesReceived,
+		ConnectionID:  &cid,
 		CreatedAt:     timestamp,
 	}
 
 	// Get process information for the connection
 	if conn.PID > 0 {
-		event.ProcessID = int(conn.PID)
+		pid := int(conn.PID)
+		event.ProcessID = &pid
 		if processName, err := nc.getProcessName(conn.PID); err == nil {
-			event.ProcessName = processName
+			event.ProcessName = &processName
 		}
 	}
 
@@ -332,7 +376,9 @@ func (nc *NetworkCollector) GetConnectionCount() (int, error) {
 
 // CleanupOldConnections removes old entries from the recent connections map
 func (nc *NetworkCollector) CleanupOldConnections() {
-	cutoff := time.Now().Add(-5 * time.Minute)
+	// Shorter retention for recentConnections map to avoid unbounded growth
+	// while still allowing short-term dedupe behavior in production scenarios.
+	cutoff := time.Now().Add(-30 * time.Second)
 	for connKey, lastSeen := range nc.recentConnections {
 		if lastSeen.Before(cutoff) {
 			delete(nc.recentConnections, connKey)

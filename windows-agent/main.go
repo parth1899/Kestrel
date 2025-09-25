@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"windows-agent/config"
 	"windows-agent/database"
@@ -66,6 +67,18 @@ func main() {
 		logger.Fatalf("Failed to start telemetry service: %v", err)
 	}
 
+	// Start a background goroutine to run threat scanner periodically
+	logger.Info("Starting background threat scanner (every 30s)...")
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		// Run once immediately
+		RunThreatScanner(db.DB)
+		for range ticker.C {
+			RunThreatScanner(db.DB)
+		}
+	}()
+
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -82,6 +95,7 @@ func main() {
 	}
 
 	logger.Info("Windows Security Agent stopped successfully")
+	os.Exit(0)
 }
 
 // setupGracefulShutdown sets up graceful shutdown handling
