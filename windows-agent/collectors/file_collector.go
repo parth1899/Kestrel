@@ -320,21 +320,21 @@ func (fc *FileCollector) calculateFileHash(filePath string) (string, error) {
 }
 
 // CollectFileAccessEvent creates an event when a file is accessed
-func (fc *FileCollector) CollectFileAccessEvent(filePath string, accessType string) *models.FileEvent {
-	info, err := os.Stat(filePath)
-	if err != nil {
-		fc.logger.Warnf("Failed to get file info for %s: %v", filePath, err)
-		return nil
-	}
+// func (fc *FileCollector) CollectFileAccessEvent(filePath string, accessType string) *models.FileEvent {
+// 	info, err := os.Stat(filePath)
+// 	if err != nil {
+// 		fc.logger.Warnf("Failed to get file info for %s: %v", filePath, err)
+// 		return nil
+// 	}
 
-	event := fc.createFileEvent(filePath, info, time.Now())
-	event.EventType = accessType
-	event.Severity = "medium" // File access events are typically medium priority
+// 	event := fc.createFileEvent(filePath, info, time.Now())
+// 	event.EventType = accessType
+// 	event.Severity = "medium" // File access events are typically medium priority
 
-	return event
-}
+// 	return event
+// }
 
 // GetFileCount returns the number of files being monitored
-func (fc *FileCollector) GetFileCount() int {
-	return len(fc.recentFiles)
-}
+// func (fc *FileCollector) GetFileCount() int {
+// 	return len(fc.recentFiles)
+// }
