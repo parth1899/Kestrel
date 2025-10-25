@@ -7,3 +7,4 @@ windows-agent/config/config.yaml
 */*/config.yaml
 windows-agent/config/config.yaml
 venv
+.env
