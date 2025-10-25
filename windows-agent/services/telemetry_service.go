@@ -557,10 +557,12 @@ func (ts *TelemetryService) collectNetworkData() error {
 
 // RabbitMQ connection
 func (ts *TelemetryService) connectRabbitMQ() error {
-	dsn := fmt.Sprintf("amqp://%s:%s@%s/",
-		ts.config.RabbitMQ.Username,
-		ts.config.RabbitMQ.Password,
-		ts.config.RabbitMQ.URL)
+	// dsn := fmt.Sprintf("amqp://%s:%s@%s/",
+	// 	ts.config.RabbitMQ.Username,
+	// 	ts.config.RabbitMQ.Password,
+	// 	ts.config.RabbitMQ.URL)
+
+	dsn := ts.config.RabbitMQ.URL
 
 	conn, err := amqp091.Dial(dsn)
 	if err != nil {

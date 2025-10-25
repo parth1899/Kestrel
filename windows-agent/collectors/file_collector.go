@@ -2,7 +2,10 @@ package collectors
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -314,9 +317,27 @@ func (fc *FileCollector) determineFileSeverity(path string, info os.FileInfo) st
 
 // calculateFileHash calculates SHA256 hash of a file
 func (fc *FileCollector) calculateFileHash(filePath string) (string, error) {
-	// For now, return a placeholder hash
-	// In production, you'd implement actual file hashing
-	return fmt.Sprintf("hash_%s_%d", filepath.Base(filePath), time.Now().Unix()), nil
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	// Create a new SHA256 hasher
+	hasher := sha256.New()
+
+	// Copy file contents to hasher
+	// io.Copy reads in chunks, so it's memory efficient even for large files
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", fmt.Errorf("failed to hash file: %v", err)
+	}
+
+	// Get the hash sum and convert to hex string
+	hashBytes := hasher.Sum(nil)
+	hashString := hex.EncodeToString(hashBytes)
+
+	return hashString, nil
 }
 
 // CollectFileAccessEvent creates an event when a file is accessed
