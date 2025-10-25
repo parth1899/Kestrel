@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -11,8 +12,17 @@ import (
 	"windows-agent/database"
 	"windows-agent/models"
 
+	"github.com/rabbitmq/amqp091-go"
 	"github.com/sirupsen/logrus"
 )
+
+type EventEnvelope struct {
+	EventID   string                 `json:"event_id"`
+	AgentID   string                 `json:"agent_id"`
+	EventType string                 `json:"event_type"`
+	Payload   map[string]interface{} `json:"payload"`
+	Timestamp string                 `json:"timestamp"`
+}
 
 // TelemetryService orchestrates data collection and storage
 type TelemetryService struct {
@@ -31,6 +41,9 @@ type TelemetryService struct {
 	mutex    sync.RWMutex       // for thread-safe operations
 	ctx      context.Context    // context for managing goroutines
 	cancel   context.CancelFunc // context cancel function
+	// RabbitMQ
+	conn *amqp091.Connection
+	ch   *amqp091.Channel
 }
 
 // NewTelemetryService creates a new telemetry service
@@ -70,6 +83,11 @@ func (ts *TelemetryService) Start() error {
 	// Initialize network collector
 	ts.networkCollector = collectors.NewNetworkCollector(ts.config.Agent.ID, ts.logger)
 
+	// RabbitMQ
+	if err := ts.connectRabbitMQ(); err != nil {
+		return fmt.Errorf("rabbitmq: %w", err)
+	}
+
 	ts.running = true
 	ts.logger.Info("Starting telemetry service with real-time monitoring...")
 
@@ -93,11 +111,20 @@ func (ts *TelemetryService) processEventLoop() {
 	ts.processCollector.StartRealTimeMonitoring(ts.ctx)
 
 	// Process events from the channel
-	for event := range ts.processCollector.GetProcessChannel() {
-		if err := ts.repo.SaveProcessEvent(&event); err != nil {
-			ts.logger.Errorf("Failed to save process event: %v", err)
-		} else {
-			ts.logger.Debugf("Saved process event: %s (PID: %d)", event.ProcessName, event.ProcessID)
+	// for event := range ts.processCollector.GetProcessChannel() {
+	// 	if err := ts.repo.SaveProcessEvent(&event); err != nil {
+	// 		ts.logger.Errorf("Failed to save process event: %v", err)
+	// 	} else {
+	// 		ts.logger.Debugf("Saved process event: %s (PID: %d)", event.ProcessName, event.ProcessID)
+	// 	}
+	// }
+	for ev := range ts.processCollector.GetProcessChannel() {
+		if err := ts.repo.SaveProcessEvent(&ev); err != nil {
+			ts.logger.Errorf("DB save process: %v", err)
+			continue
+		}
+		if err := ts.publishRaw("process", &ev); err != nil {
+			ts.logger.Errorf("RabbitMQ publish process: %v", err)
 		}
 	}
 }
@@ -126,11 +153,20 @@ func (ts *TelemetryService) fileEventLoop() {
 		}
 	}()
 
-	for event := range ts.fileCollector.GetFileChannel() {
-		if err := ts.repo.SaveFileEvent(&event); err != nil {
-			ts.logger.Errorf("Failed to save file event: %v", err)
-		} else {
-			ts.logger.Debugf("Saved file event: %s %s", event.EventType, event.FileName)
+	// for event := range ts.fileCollector.GetFileChannel() {
+	// 	if err := ts.repo.SaveFileEvent(&event); err != nil {
+	// 		ts.logger.Errorf("Failed to save file event: %v", err)
+	// 	} else {
+	// 		ts.logger.Debugf("Saved file event: %s %s", event.EventType, event.FileName)
+	// 	}
+	// }
+	for ev := range ts.fileCollector.GetFileChannel() {
+		if err := ts.repo.SaveFileEvent(&ev); err != nil {
+			ts.logger.Errorf("DB save file: %v", err)
+			continue
+		}
+		if err := ts.publishRaw("file", &ev); err != nil {
+			ts.logger.Errorf("RabbitMQ publish file: %v", err)
 		}
 	}
 }
@@ -156,12 +192,21 @@ func (ts *TelemetryService) networkEventLoop() {
 		}
 	}()
 
-	for event := range ts.networkCollector.GetNetworkChannel() {
-		if err := ts.repo.SaveNetworkEvent(&event); err != nil {
-			ts.logger.Errorf("Failed to save network event: %v", err)
-		} else {
-			ts.logger.Debugf("Saved network event: %s:%d -> %s:%d",
-				event.LocalIP, event.LocalPort, event.RemoteIP, event.RemotePort)
+	// for event := range ts.networkCollector.GetNetworkChannel() {
+	// 	if err := ts.repo.SaveNetworkEvent(&event); err != nil {
+	// 		ts.logger.Errorf("Failed to save network event: %v", err)
+	// 	} else {
+	// 		ts.logger.Debugf("Saved network event: %s:%d -> %s:%d",
+	// 			event.LocalIP, event.LocalPort, event.RemoteIP, event.RemotePort)
+	// 	}
+	// }
+	for ev := range ts.networkCollector.GetNetworkChannel() {
+		if err := ts.repo.SaveNetworkEvent(&ev); err != nil {
+			ts.logger.Errorf("DB save network: %v", err)
+			continue
+		}
+		if err := ts.publishRaw("network", &ev); err != nil {
+			ts.logger.Errorf("RabbitMQ publish network: %v", err)
 		}
 	}
 }
@@ -226,6 +271,13 @@ func (ts *TelemetryService) Stop() error {
 
 	close(ts.stopChan)
 
+	if ts.ch != nil {
+		_ = ts.ch.Close()
+	}
+	if ts.conn != nil {
+		_ = ts.conn.Close()
+	}
+
 	ts.logger.Info("Telemetry service stopped successfully")
 	return nil
 }
@@ -248,6 +300,10 @@ func (ts *TelemetryService) collectSystemInfo() error {
 
 	if err := ts.repo.SaveSystemInfo(systemInfo); err != nil {
 		return fmt.Errorf("failed to save system info: %v", err)
+	}
+
+	if err := ts.publishRaw("system", systemInfo); err != nil {
+		ts.logger.Errorf("RabbitMQ system info: %v", err)
 	}
 
 	ts.logger.Debugf("System info collected and stored for host: %s", systemInfo.Hostname)
@@ -496,5 +552,114 @@ func (ts *TelemetryService) collectNetworkData() error {
 	}
 
 	ts.logger.Infof("Collected and stored %d network events", len(networkEvents))
+	return nil
+}
+
+// RabbitMQ connection
+func (ts *TelemetryService) connectRabbitMQ() error {
+	dsn := fmt.Sprintf("amqp://%s:%s@%s/",
+		ts.config.RabbitMQ.Username,
+		ts.config.RabbitMQ.Password,
+		ts.config.RabbitMQ.URL)
+
+	conn, err := amqp091.Dial(dsn)
+	if err != nil {
+		return err
+	}
+	ts.conn = conn
+
+	ch, err := conn.Channel()
+	if err != nil {
+		return err
+	}
+	ts.ch = ch
+
+	// topic exchange as required by the Integration Strategy
+	if err := ch.ExchangeDeclare(
+		ts.config.RabbitMQ.Exchange, // name
+		"topic",                     // type
+		true,                        // durable
+		false,                       // auto-delete
+		false,                       // internal
+		false,                       // no-wait
+		nil,
+	); err != nil {
+		return err
+	}
+	ts.logger.Info("RabbitMQ connected & exchange declared")
+	return nil
+}
+
+// helper : publish raw event
+func (ts *TelemetryService) publishRaw(eventType string, ev interface{}) error {
+	ts.logger.Infof("Publishing raw event: type=%s", eventType)
+	// 1. marshal → map (payload)
+	b, _ := json.Marshal(ev)
+	var payload map[string]interface{}
+	_ = json.Unmarshal(b, &payload)
+
+	// 2. strip fields that are duplicated in the envelope
+	delete(payload, "id")
+	delete(payload, "agent_id")
+	delete(payload, "timestamp")
+	delete(payload, "created_at")
+
+	// 3. extract common fields
+
+	var id, agentID string
+	var tsTime time.Time
+
+	switch v := ev.(type) {
+	case *models.ProcessEvent:
+		id, agentID, tsTime = v.ID, v.AgentID, v.Timestamp
+	case *models.FileEvent:
+		id, agentID, tsTime = v.ID, v.AgentID, v.Timestamp
+	case *models.NetworkEvent:
+		id, agentID, tsTime = v.ID, v.AgentID, v.Timestamp
+	case *models.SystemInfo:
+		id, agentID, tsTime = v.ID, v.AgentID, v.Timestamp
+	case *models.TelemetryEvent:
+		id, agentID, tsTime = v.ID, v.AgentID, v.Timestamp
+	default:
+		return fmt.Errorf("unsupported event type %T", ev)
+	}
+
+	env := EventEnvelope{
+		EventID:   id,
+		AgentID:   agentID,
+		EventType: eventType,
+		Payload:   payload,
+		Timestamp: tsTime.Format(time.RFC3339),
+	}
+
+	body, _ := json.Marshal(env)
+
+	rk := fmt.Sprintf("events.raw.%s.%s", agentID, eventType)
+
+	// return ts.ch.Publish(
+	// 	ts.config.RabbitMQ.Exchange,
+	// 	rk,
+	// 	false, // mandatory
+	// 	false, // immediate
+	// 	amqp091.Publishing{
+	// 		ContentType: "application/json",
+	// 		Body:        body,
+	// 	},
+	// )
+
+	if err := ts.ch.Publish(
+		ts.config.RabbitMQ.Exchange,
+		rk,
+		false, // mandatory
+		false, // immediate
+		amqp091.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		}); err != nil {
+		ts.logger.Errorf("Failed to publish to RabbitMQ: %v", err)
+		return err
+	}
+
+	ts.logger.Infof("Published to %s", rk) // ADD THIS
 	return nil
 }

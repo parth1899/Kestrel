@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/lib/pq v1.10.9
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.17.0

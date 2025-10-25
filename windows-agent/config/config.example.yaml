@@ -15,3 +15,9 @@ database:
 
 server:
   port: 8080
+
+rabbitmq:
+  url: localhost:5672
+  username: guest
+  password: guest
+  exchange: events
