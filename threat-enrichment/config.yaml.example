@@ -1,0 +1,14 @@
+rabbitmq:
+  exchange: events
+
+database:
+  dsn: "host=%(POSTGRES_HOST)s user=%(POSTGRES_USER)s password=%(POSTGRES_PASSWORD)s dbname=%(POSTGRES_DB)s"
+
+redis:
+  host: 
+  port: 6379
+  db: 0
+  ttl_hours: 24
+
+enrichment:
+  geoip_db: "./GeoLite2-City.mmdb"

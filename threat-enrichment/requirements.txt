@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pika
+psycopg2-binary
+redis
+httpx
+yara-python
+geoip2
+jsonschema
+python-dotenv
+PyYAML
+tenacity
