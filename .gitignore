@@ -8,3 +8,4 @@ windows-agent/config/config.yaml
 windows-agent/config/config.yaml
 venv
 .env
+GeoLite2-City.mmdb
