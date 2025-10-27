@@ -33,7 +33,8 @@ with open("config.yaml") as f:
 
 # Connections
 pg_conn = psycopg2.connect(os.getenv("DATABASE_DSN", CONFIG['database']['dsn'] % os.environ))
-redis_client = redis.Redis(host=CONFIG['redis']['host'], port=CONFIG['redis']['port'], db=CONFIG['redis']['db'], decode_responses=True)
+# redis_client = redis.Redis(host=os.getenv("REDIS_HOST"), port=, db=CONFIG['redis']['db'], decode_responses=True)
+redis_client = redis.Redis(host=os.getenv("REDIS_HOST"), port=int(os.getenv("REDIS_PORT")), username=os.getenv("REDIS_USER"), password=os.getenv("REDIS_PASSWORD"), db=int(os.getenv("REDIS_DB", 0)), decode_responses=True, ssl=True)  # Aiven/Valkey requires TLS
 geoip_reader = geoip2.database.Reader(CONFIG['enrichment']['geoip_db'])
 yara_rules = yara.compile(filepath="yara_rules/suspicious.yar")
 
@@ -93,10 +94,13 @@ async def vt_lookup(file_hash: str) -> Dict:
         data = resp.json().get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
         return {"positives": data.get("malicious", 0) + data.get("suspicious", 0), "total": sum(data.values())}
 
+# === ENRICHMENT FUNCTIONS ===
+
 async def enrich_file(event: Dict) -> Dict:
     payload = event['payload']
     file_hash = payload.get('file_hash')
     file_name = payload.get('file_name', '')
+    file_path = payload.get('file_path', '')
     enrichment = {
         "ioc_matches": [],
         "reputation": {"vt": {}, "otx": {}},
@@ -105,53 +109,53 @@ async def enrich_file(event: Dict) -> Dict:
         "threat_score": 0.0
     }
 
-    # YARA on file_name
+    # YARA on filename + path
     try:
-        matches = yara_rules.match(data=file_name)
+        matches = yara_rules.match(data=file_name + " " + file_path)
         enrichment['yara_hits'] = [m.rule for m in matches]
         if matches:
             enrichment['threat_score'] += 30
     except Exception as e:
-        log.warning(f"YARA failed: {e}")
+        log.warning(f"YARA file failed: {e}")
 
-    if file_hash:
+    if file_hash and len(file_hash) > 10:  # real hash
         # VT
-        cache_key_vt = f"vt:{file_hash}"
-        cached_vt = redis_client.get(cache_key_vt)
-        if cached_vt:
-            vt = json.loads(cached_vt)
+        cache_key = f"vt:{file_hash}"
+        cached = redis_client.get(cache_key)
+        if cached:
+            vt = json.loads(cached)
         else:
             try:
                 vt = await vt_lookup(file_hash)
-                redis_client.setex(cache_key_vt, timedelta(hours=CONFIG['redis']['ttl_hours']), json.dumps(vt))
+                redis_client.setex(cache_key, timedelta(hours=24), json.dumps(vt))
             except Exception as e:
                 log.error(f"VT failed: {e}")
                 vt = {"positives": 0, "total": 0}
         enrichment['reputation']['vt'] = vt
         if vt['positives'] > 0:
             enrichment['ioc_matches'].append("vt_malicious")
-            enrichment['threat_score'] += (vt['positives'] / vt['total']) * 50 if vt['total'] > 0 else 0
+            enrichment['threat_score'] += min(vt['positives'] * 5, 50)
 
-        # OTX for hash
-        cache_key_otx = f"otx:hash:{file_hash}"
-        cached_otx = redis_client.get(cache_key_otx)
-        if cached_otx:
-            otx = json.loads(cached_otx)
+        # OTX
+        cache_key = f"otx:file:{file_hash}"
+        cached = redis_client.get(cache_key)
+        if cached:
+            otx = json.loads(cached)
         else:
             try:
                 otx = await otx_lookup(file_hash, "hash")
-                redis_client.setex(cache_key_otx, timedelta(hours=CONFIG['redis']['ttl_hours']), json.dumps(otx))
+                redis_client.setex(cache_key, timedelta(hours=24), json.dumps(otx))
             except Exception as e:
-                log.error(f"OTX hash failed: {e}")
+                log.error(f"OTX file failed: {e}")
                 otx = {"pulses": 0}
         enrichment['reputation']['otx'] = otx
         if otx['pulses'] > 0:
             enrichment['ioc_matches'].append("otx_pulses")
-            enrichment['threat_score'] += min(otx['pulses'] * 5, 20)
+            enrichment['threat_score'] += min(otx['pulses'] * 3, 30)
 
     enrichment['threat_score'] = min(enrichment['threat_score'], 100)
-    enrichment['ioc_matches'] = list(set(enrichment['ioc_matches']))  # Dedup
     return enrichment
+
 
 async def enrich_network(event: Dict) -> Dict:
     payload = event['payload']
@@ -166,49 +170,126 @@ async def enrich_network(event: Dict) -> Dict:
 
     if remote_ip and remote_ip not in ["::1", "127.0.0.1", "0.0.0.0"]:
         # GeoIP
-        cache_key_geo = f"geoip:{remote_ip}"
-        cached_geo = redis_client.get(cache_key_geo)
-        if cached_geo:
-            enrichment['geoip'] = json.loads(cached_geo)
+        cache_key = f"geoip:{remote_ip}"
+        cached = redis_client.get(cache_key)
+        if cached:
+            geo = json.loads(cached)
         else:
             try:
                 resp = geoip_reader.city(remote_ip)
-                geo_data = {
+                geo = {
                     "country": resp.country.name,
                     "city": resp.city.name,
                     "lat": resp.location.latitude,
-                    "lon": resp.location.longitude
+                    "lon": resp.location.longitude,
+                    "org": getattr(resp.traits, 'isp', None)
                 }
-                enrichment['geoip'] = geo_data
-                redis_client.setex(cache_key_geo, timedelta(hours=CONFIG['redis']['ttl_hours']), json.dumps(geo_data))
-            except Exception as e:
-                log.warning(f"GeoIP failed: {e}")
+                redis_client.setex(cache_key, timedelta(hours=24), json.dumps(geo))
+            except:
+                geo = {}
+        enrichment['geoip'] = geo
 
-        # OTX for IP
-        cache_key_otx = f"otx:ip:{remote_ip}"
-        cached_otx = redis_client.get(cache_key_otx)
-        if cached_otx:
-            otx = json.loads(cached_otx)
+        # OTX IP
+        cache_key = f"otx:ip:{remote_ip}"
+        cached = redis_client.get(cache_key)
+        if cached:
+            otx = json.loads(cached)
         else:
             try:
                 otx = await otx_lookup(remote_ip, "ip")
-                redis_client.setex(cache_key_otx, timedelta(hours=CONFIG['redis']['ttl_hours']), json.dumps(otx))
-            except Exception as e:
-                log.error(f"OTX IP failed: {e}")
+                redis_client.setex(cache_key, timedelta(hours=24), json.dumps(otx))
+            except:
                 otx = {"pulses": 0}
         enrichment['reputation']['otx'] = otx
         if otx['pulses'] > 0:
-            enrichment['ioc_matches'].append("otx_pulses_ip")
-            enrichment['threat_score'] += min(otx['pulses'] * 5, 30)
+            enrichment['ioc_matches'].append("otx_ip_malicious")
+            enrichment['threat_score'] += min(otx['pulses'] * 5, 40)
 
-    enrichment['ioc_matches'] = list(set(enrichment['ioc_matches']))
+    return enrichment
+
+
+async def enrich_process(event: Dict) -> Dict:
+    payload = event['payload']
+    cmdline = payload.get('command_line', '')
+    exe_path = payload.get('executable_path', '')
+    file_hash = payload.get('hash')  # from process_event
+    enrichment = {
+        "ioc_matches": [],
+        "reputation": {"vt": {}},
+        "yara_hits": [],
+        "geoip": {},
+        "threat_score": 0.0
+    }
+
+    # YARA on command line + path
+    try:
+        data = f"{cmdline} {exe_path}"
+        if data.strip():
+            matches = yara_rules.match(data=data)
+            enrichment['yara_hits'] = [m.rule for m in matches]
+            if matches:
+                enrichment['threat_score'] += 25
+    except Exception as e:
+        log.warning(f"YARA process failed: {e}")
+
+    # VT on process hash (if available)
+    if file_hash and len(file_hash) > 10:
+        cache_key = f"vt:proc:{file_hash}"
+        cached = redis_client.get(cache_key)
+        if cached:
+            vt = json.loads(cached)
+        else:
+            try:
+                vt = await vt_lookup(file_hash)
+                redis_client.setex(cache_key, timedelta(hours=24), json.dumps(vt))
+            except:
+                vt = {"positives": 0, "total": 0}
+        enrichment['reputation']['vt'] = vt
+        if vt['positives'] > 0:
+            enrichment['ioc_matches'].append("vt_process_malicious")
+            enrichment['threat_score'] += min(vt['positives'] * 6, 60)
+
+    # Suspicious parent/child or system process
+    if payload.get('parent_process_id') == 0:
+        enrichment['ioc_matches'].append("system_parent")
+        enrichment['threat_score'] += 10
+
+    enrichment['threat_score'] = min(enrichment['threat_score'], 100)
+    return enrichment
+
+
+async def enrich_system(event: Dict) -> Dict:
+    payload = event['payload']
+    cpu = payload.get('cpu_usage', 0)
+    mem_free = payload.get('available_memory', 0) / (1024**3)
+    total_mem = payload.get('total_memory', 1) / (1024**3)
+    mem_used_pct = 100 * (1 - mem_free / total_mem) if total_mem > 0 else 0
+    enrichment = {
+        "ioc_matches": [],
+        "reputation": {},
+        "yara_hits": [],
+        "geoip": {},
+        "threat_score": 0.0
+    }
+
+    # High CPU
+    if cpu > 80:
+        enrichment['ioc_matches'].append("high_cpu")
+        enrichment['threat_score'] += min((cpu - 80) * 2, 30)
+
+    # High Memory
+    if mem_used_pct > 90:
+        enrichment['ioc_matches'].append("high_memory")
+        enrichment['threat_score'] += min((mem_used_pct - 90) * 3, 30)
+
+    # Uptime anomaly (optional future ML baseline)
     return enrichment
 
 # === CONSUMER ===
 def process_message(ch, method, properties, body):
     try:
         raw = json.loads(body)
-        validate(raw, RAW_SCHEMA)
+        validate(raw, RAW_SCHEMA) # ensure data integrity
 
         event_type = raw['event_type']
         enrichment = {}
@@ -217,6 +298,10 @@ def process_message(ch, method, properties, body):
             enrichment = asyncio.run(enrich_file(raw))
         elif event_type == "network":
             enrichment = asyncio.run(enrich_network(raw))
+        elif event_type == "process":
+            enrichment = asyncio.run(enrich_process(raw))
+        elif event_type == "system":
+            enrichment = asyncio.run(enrich_system(raw))
 
         # Save to DB
         cur = pg_conn.cursor()

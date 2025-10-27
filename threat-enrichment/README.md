@@ -6,3 +6,14 @@ The service consists of three main parts:
 3. Enrichment logic — fetches intelligence data (VirusTotal, OTX, GeoIP, YARA) and enriches each event.
 
 After enrichment, it stores results in PostgreSQL and republishes enriched events to RabbitMQ.
+
+Basic Payload after enrichment:
+```
+enrichment = {
+        "ioc_matches": [], // indicator of compromise
+        "reputation": {"vt": {}, "otx": {}},
+        "yara_hits": [],
+        "geoip": {},
+        "threat_score": 0.0
+    }
+```
