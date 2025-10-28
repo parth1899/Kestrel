@@ -1,0 +1,33 @@
+{
+  "event_id": "5ffd2623-34d1-46c4-180f-37c3576a7222",
+  "agent_id": "windows-agent-001",
+  "event_type": "process",
+  "payload": {
+    "command_line": "",
+    "cpu_usage": 0,
+    "end_time": "2025-10-28T12:20:20.8090238+05:30",
+    "event_type": "stop",
+    "executable_path": "",
+    "hash": "",
+    "memory_usage": 0,
+    "parent_process_id": 0,
+    "process_id": 11812,
+    "process_name": "",
+    "severity": "low",
+    "signature": "",
+    "start_time": "0001-01-01T00:00:00Z",
+    "username": ""
+  },
+  "enrichment": {
+    "ioc_matches": [
+      "system_parent"
+    ],
+    "reputation": {
+      "vt": {}
+    },
+    "yara_hits": [],
+    "geoip": {},
+    "threat_score": 10.0
+  },
+  "timestamp": "2025-10-28T12:20:20+05:30"
+}

@@ -1,0 +1,29 @@
+{
+  "event_id": "dc6ccf7c-40b2-895a-3cbf-b57b8355041f",
+  "agent_id": "windows-agent-001",
+  "event_type": "network",
+  "payload": {
+    "bytes_received": 0,
+    "bytes_sent": 0,
+    "connection_id": "192.168.56.1:1900-:0-UDP",
+    "event_type": "connect",
+    "local_ip": "192.168.56.1",
+    "local_port": 1900,
+    "process_id": 6368,
+    "process_name": "",
+    "protocol": "UDP",
+    "remote_ip": "",
+    "remote_port": 0,
+    "severity": "low"
+  },
+  "enrichment": {
+    "ioc_matches": [],
+    "reputation": {
+      "otx": {}
+    },
+    "yara_hits": [],
+    "geoip": {},
+    "threat_score": 0.0
+  },
+  "timestamp": "2025-10-28T12:20:13+05:30"
+}
