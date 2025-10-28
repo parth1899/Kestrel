@@ -46,16 +46,6 @@ func (p *PostgresDB) Close() error {
 // InitTables creates all necessary tables if they don't exist
 func (p *PostgresDB) InitTables() error {
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS telemetry_events (
-			id VARCHAR(255) PRIMARY KEY,
-			agent_id VARCHAR(255) NOT NULL,
-			event_type VARCHAR(100) NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			severity VARCHAR(50) NOT NULL,
-			data JSONB,
-			processed BOOLEAN DEFAULT FALSE,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
 		`CREATE TABLE IF NOT EXISTS process_events (
 			id VARCHAR(255) PRIMARY KEY,
 			agent_id VARCHAR(255) NOT NULL,
@@ -124,19 +114,6 @@ func (p *PostgresDB) InitTables() error {
 			timestamp TIMESTAMP NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`CREATE TABLE IF NOT EXISTS threat_indicators (
-			id VARCHAR(255) PRIMARY KEY,
-			agent_id VARCHAR(255) NOT NULL,
-			event_id VARCHAR(255) NOT NULL,
-			event_type VARCHAR(100) NOT NULL,
-			threat_type VARCHAR(100) NOT NULL,
-			description TEXT NOT NULL,
-			confidence DECIMAL(5,2) NOT NULL,
-			severity VARCHAR(50) NOT NULL,
-			timestamp TIMESTAMP NOT NULL,
-			status VARCHAR(50) DEFAULT 'new',
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)`,
 	}
 
 	for _, query := range queries {
@@ -152,9 +129,6 @@ func (p *PostgresDB) InitTables() error {
 // CreateIndexes creates indexes for better query performance
 func (p *PostgresDB) CreateIndexes() error {
 	indexes := []string{
-		"CREATE INDEX IF NOT EXISTS idx_telemetry_events_agent_id ON telemetry_events(agent_id)",
-		"CREATE INDEX IF NOT EXISTS idx_telemetry_events_timestamp ON telemetry_events(timestamp)",
-		"CREATE INDEX IF NOT EXISTS idx_telemetry_events_event_type ON telemetry_events(event_type)",
 		"CREATE INDEX IF NOT EXISTS idx_process_events_agent_id ON process_events(agent_id)",
 		"CREATE INDEX IF NOT EXISTS idx_process_events_timestamp ON process_events(timestamp)",
 		"CREATE INDEX IF NOT EXISTS idx_process_events_process_id ON process_events(process_id)",
@@ -166,9 +140,6 @@ func (p *PostgresDB) CreateIndexes() error {
 		"CREATE INDEX IF NOT EXISTS idx_network_events_remote_ip ON network_events(remote_ip)",
 		"CREATE INDEX IF NOT EXISTS idx_system_info_agent_id ON system_info(agent_id)",
 		"CREATE INDEX IF NOT EXISTS idx_system_info_timestamp ON system_info(timestamp)",
-		"CREATE INDEX IF NOT EXISTS idx_threat_indicators_agent_id ON threat_indicators(agent_id)",
-		"CREATE INDEX IF NOT EXISTS idx_threat_indicators_timestamp ON threat_indicators(timestamp)",
-		"CREATE INDEX IF NOT EXISTS idx_threat_indicators_status ON threat_indicators(status)",
 	}
 
 	for _, index := range indexes {
