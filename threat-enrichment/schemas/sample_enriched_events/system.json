@@ -1,0 +1,24 @@
+{
+  "event_id": "2d3d54f3-896a-4bdd-100b-3a10d8c38592",
+  "agent_id": "windows-agent-001",
+  "event_type": "system",
+  "payload": {
+    "architecture": "amd64",
+    "available_memory": 5528776704,
+    "cpu_count": 4,
+    "cpu_usage": 36.49017467248908,
+    "disk_usage": 71.7140073864804,
+    "hostname": "Parths-Laptop",
+    "os_version": "windows amd64",
+    "total_memory": 16910159872,
+    "uptime": 12135
+  },
+  "enrichment": {
+    "ioc_matches": [],
+    "reputation": {},
+    "yara_hits": [],
+    "geoip": {},
+    "threat_score": 0.0
+  },
+  "timestamp": "2025-10-28T12:18:38+05:30"
+}
