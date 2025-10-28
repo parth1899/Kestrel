@@ -1,0 +1,37 @@
+{
+  "event_id": "b6844d40-300d-9776-8402-476c02be2689",
+  "agent_id": "windows-agent-001",
+  "event_type": "file",
+  "payload": {
+    "event_type": "create",
+    "file_hash": "96ad1146eb96877eab5942ae0736b82d8b5e2039a80d3d6932665c1a4c87dcf7",
+    "file_name": "__PSScriptPolicyTest_p0wx5bdw.rwh.ps1",
+    "file_path": "C:\\Users\\parth\\AppData\\Local\\Temp\\__PSScriptPolicyTest_p0wx5bdw.rwh.ps1",
+    "file_size": 60,
+    "file_type": ".ps1",
+    "process_id": 0,
+    "process_name": "",
+    "severity": "medium"
+  },
+  "enrichment": {
+    "ioc_matches": [
+      "otx_pulses"
+    ],
+    "reputation": {
+      "vt": {
+        "positives": 0,
+        "total": 76
+      },
+      "otx": {
+        "pulses": 50
+      }
+    },
+    "yara_hits": [
+      "PowerShell_Suspicious_Temp_File",
+      "PowerShell_Suspicious_Temp_Execution"
+    ],
+    "geoip": {},
+    "threat_score": 60.0
+  },
+  "timestamp": "2025-10-28T12:21:00+05:30"
+}
