@@ -364,5 +364,10 @@ def start_consumer():
 # === ENTRYPOINT ===
 if __name__ == "__main__":
     import threading
+    import os
+
     threading.Thread(target=start_consumer, daemon=True).start()
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    # use Render's dynamic PORT env var (fallback to 8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

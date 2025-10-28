@@ -1,5 +1,4 @@
 *.exe
-config.yaml
 .vscode/
 docker-compose.yml
 postgres.yml
