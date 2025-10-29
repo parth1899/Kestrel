@@ -31,12 +31,24 @@ async def start_consumer(
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=10)
 
-        exchange = await channel.declare_exchange(
-            config["rabbitmq"]["exchange"], aio_pika.ExchangeType.TOPIC, durable=True
+        # === DECLARE INPUT EXCHANGE ===
+        events_exchange = await channel.declare_exchange(
+            config["rabbitmq"]["exchange"],
+            aio_pika.ExchangeType.TOPIC,
+            durable=True
         )
 
+        # === DECLARE OUTPUT EXCHANGE ===
+        alerts_exchange = await channel.declare_exchange(
+            config["rabbitmq"]["alert_exchange"],
+            aio_pika.ExchangeType.TOPIC,
+            durable=True
+        )
+
+        # === BIND QUEUE TO INPUT ===
         queue = await channel.declare_queue("", exclusive=True)
-        await queue.bind(exchange, routing_key="events.enriched.#")
+        log.info("Binding to: events.enriched.#")
+        await queue.bind(events_exchange, routing_key="events.enriched.#")
 
         ensemble = EnsembleDetector()
 
@@ -44,6 +56,7 @@ async def start_consumer(
             async for message in queue_iter:
                 async with message.process():
                     try:
+                        log.info(f"Received message: routing_key={message.routing_key}")
                         body = message.body.decode()
                         data = json.loads(body)
 
@@ -54,15 +67,18 @@ async def start_consumer(
 
                         # ---- turn into Pydantic model -----------------------------------------
                         event = EnrichedEvent(**data)
+                        log.info(f"Event ID: {event.event_id} | Type: {event.event_type}")
 
                         # ---- feature extraction (injected) ------------------------------------
                         extractor = get_extractor(event.event_type)
                         features = extractor.extract(event)
+                        log.info(f"Extracted features: {list(features.keys())}")
 
                         # ---- detection ---------------------------------------------------------
                         score, reasons = ensemble.detect(
                             features, event.agent_id, event.event_type
                         )
+                        log.info(f"Ensemble score: {score} | Reasons: {reasons}")
 
                         # ---- alerting ----------------------------------------------------------
                         if score >= 50:
@@ -86,7 +102,7 @@ async def start_consumer(
                                 },
                             )
                             write_alert_to_db(alert)
-                            await publish_alert(channel, alert, config)
+                            await publish_alert(alerts_exchange, alert, config)
 
                     except ValidationError as e:
                         log.error(f"Schema validation failed: {e}")
