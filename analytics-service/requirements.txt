@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+aio-pika
+pika
+psycopg2-binary
+sqlalchemy
+pydantic
+jsonschema
+river
+scikit-learn
+xgboost
+redis
+python-dotenv
+pyyaml
+tenacity
+prometheus-client

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["event_id", "agent_id", "event_type", "payload", "enrichment", "timestamp"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "agent_id": { "type": "string" },
+    "event_type": { "type": "string", "enum": ["file", "network", "process", "system"] },
+    "payload": { "type": "object" },
+    "enrichment": {
+      "type": "object",
+      "properties": {
+        "ioc_matches": { "type": "array", "items": { "type": "string" } },
+        "reputation": { "type": "object" },
+        "yara_hits": { "type": "array", "items": { "type": "string" } },
+        "geoip": { "type": "object" },
+        "threat_score": { "type": "number" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

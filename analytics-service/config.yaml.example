@@ -1,0 +1,8 @@
+service:
+  name: analytics-service
+  shadow_mode: false   # set to true for testing
+
+rabbitmq:
+  url: amqp://guest:guest@localhost:5672/
+  exchange: events
+  queue_prefix: analytics

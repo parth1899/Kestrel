@@ -9,3 +9,5 @@ windows-agent/config/config.yaml
 venv
 .env
 GeoLite2-City.mmdb
+fixtures/
+__pycache__
