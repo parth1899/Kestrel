@@ -53,7 +53,7 @@ class Health(BaseModel):
     status: str
     components: Dict[str, bool]
 
-@app.get("/health", response_model=Health)
+@app.api_route("/health", methods=["GET", "HEAD"], response_model=Health)
 def health():
     return {
         "status": "healthy",
