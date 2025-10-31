@@ -1,10 +1,10 @@
-import React from 'react';
-import { EndpointSummary } from './EndpointSummary';
 import { ThreatTimeline } from './ThreatTimeline';
 import { ThreatDisposition } from './ThreatDisposition';
 import { EndpointAnalysis } from './EndpointAnalysis';
 import { ResponseAssignments } from './ResponseAssignments';
 import { MitreTechniques } from './MitreTechniques';
+import { SOCMetrics } from './SOCMetrics';
+import { AlertsTable } from './AlertsTable';
 
 export function Dashboard() {
   return (
@@ -19,7 +19,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <div className="xl:col-span-2">
-          <EndpointSummary />
+          <SOCMetrics />
         </div>
         <div>
           <ThreatTimeline />
@@ -60,7 +60,10 @@ export function Dashboard() {
         </div>
       </div>
 
-      <MitreTechniques />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <AlertsTable />
+        <MitreTechniques />
+      </div>
     </div>
   );
 }
