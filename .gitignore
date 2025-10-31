@@ -11,3 +11,4 @@ venv
 GeoLite2-City.mmdb
 fixtures/
 __pycache__
+myenv
