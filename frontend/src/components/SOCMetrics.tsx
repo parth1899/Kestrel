@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchMetric, ThreatTimelinePoint, SecurityAssessmentRow } from '../lib/api';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Card } from './ui/Card';
+import { Badge } from './ui/Badge';
 
 function StatCard({ title, value, unit }: { title: string; value: string | number; unit?: string }) {
   return (
-    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-      <div className="text-sm text-gray-400">{title}</div>
-      <div className="text-2xl font-bold text-blue-300">{value}{unit ? ` ${unit}` : ''}</div>
-    </div>
+    <Card padded={true} className="p-0">
+      <div className="flex flex-col gap-1">
+        <div className="text-xs uppercase tracking-wide text-[var(--color-text-dim)]">{title}</div>
+        <div className="text-xl font-semibold text-[var(--color-accent)]">{value}{unit ? ` ${unit}` : ''}</div>
+      </div>
+    </Card>
   );
 }
 
@@ -19,6 +23,8 @@ export function SOCMetrics() {
   const [timeline, setTimeline] = useState<ThreatTimelinePoint[]>([]);
   const [classification, setClassification] = useState<{ event_type: string; count: number }[]>([]);
   const [assessment, setAssessment] = useState<SecurityAssessmentRow[]>([]);
+  const [assessPage, setAssessPage] = useState(1);
+  const assessPageSize = 10;
 
   useEffect(() => {
     fetchMetric<{ value: number }>('security-events-24h').then((r) => setEvents24h(r.value)).catch(() => setEvents24h(0));
@@ -31,42 +37,47 @@ export function SOCMetrics() {
   }, []);
 
   const pieData = useMemo(() => classification.map((c) => ({ name: c.event_type, value: c.count })), [classification]);
+  const assessPageCount = useMemo(() => Math.ceil(assessment.length / assessPageSize) || 1, [assessment.length]);
+  const assessPageData = useMemo(
+    () => assessment.slice((assessPage - 1) * assessPageSize, assessPage * assessPageSize),
+    [assessment, assessPage]
+  );
+
+  useEffect(() => { setAssessPage(1); }, [assessment.length]);
   const colors = ['#60a5fa', '#f59e0b', '#34d399', '#ef4444', '#a78bfa'];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard title="Security Events (24h)" value={events24h} />
-        <StatCard title="Current Threat Level" value={threatLevel} />
-        <StatCard title="Security Posture Score" value={securityScore} />
+        <StatCard title="Threat Level" value={threatLevel} />
+        <StatCard title="Posture Score" value={securityScore} />
         <StatCard title="Active Agents" value={activeAgents} />
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-        <h3 className="text-lg font-semibold mb-4">Real-time Threat Detection</h3>
-        <div className="h-64">
+      <Card title="Real-time Threat Detection">
+        <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={timeline} margin={{ left: 16, right: 16 }}>
-              <XAxis dataKey="time" hide={false} tick={{ fill: '#9ca3af' }} tickFormatter={(t: string) => new Date(t).toLocaleTimeString()} />
-              <YAxis yAxisId="left" tick={{ fill: '#9ca3af' }} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fill: '#9ca3af' }} />
+            <LineChart data={timeline} margin={{ left: 8, right: 8 }}>
+              <XAxis dataKey="time" tick={{ fill: '#9aa9b8', fontSize: 10 }} tickFormatter={(t: string) => new Date(t).toLocaleTimeString()} />
+              <YAxis yAxisId="left" tick={{ fill: '#9aa9b8', fontSize: 10 }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fill: '#9aa9b8', fontSize: 10 }} />
               <Tooltip labelFormatter={(label: string) => new Date(label).toLocaleString()} />
-              <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="threat_level" name="Threat Level" stroke="#ef4444" dot={false} />
-              <Line yAxisId="right" type="monotone" dataKey="security_index" name="Security Index" stroke="#60a5fa" dot={false} />
-              <Line yAxisId="left" type="monotone" dataKey="anomaly_level" name="Anomaly Level" stroke="#f59e0b" dot={false} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Line yAxisId="left" type="monotone" dataKey="threat_level" name="Threat" stroke="#ef4444" dot={false} strokeWidth={2} />
+              <Line yAxisId="right" type="monotone" dataKey="security_index" name="Security" stroke="#3b82f6" dot={false} strokeWidth={2} />
+              <Line yAxisId="left" type="monotone" dataKey="anomaly_level" name="Anomaly" stroke="#f59e0b" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h3 className="text-lg font-semibold mb-4">Event Classification</h3>
-          <div className="h-64">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Card title="Event Classification" className="xl:col-span-1">
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={90} label>
+                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={75} label>
                   {pieData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                   ))}
@@ -74,41 +85,57 @@ export function SOCMetrics() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 overflow-x-auto">
-          <h3 className="text-lg font-semibold mb-4">Security Assessment</h3>
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-gray-400">
-                <th className="text-left pb-2">Last Seen</th>
-                <th className="text-left pb-2">Endpoint</th>
-                <th className="text-left pb-2">Agent</th>
-                <th className="text-left pb-2">Risk</th>
-                <th className="text-left pb-2">Score</th>
-                <th className="text-left pb-2">CPU%</th>
-                <th className="text-left pb-2">Mem%</th>
-                <th className="text-left pb-2">Disk%</th>
-                <th className="text-left pb-2">Category</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assessment.map((r, i) => (
-                <tr key={i} className="border-t border-gray-700">
-                  <td className="py-2 text-gray-300">{new Date(r.last_seen).toLocaleString()}</td>
-                  <td className="py-2 text-gray-300">{r.endpoint}</td>
-                  <td className="py-2 text-gray-400">{r.agent_id.slice(0, 12)}…</td>
-                  <td className="py-2 text-gray-300">{r.risk_level}</td>
-                  <td className="py-2 text-gray-300">{r.security_score.toFixed(1)}</td>
-                  <td className="py-2 text-gray-300">{r.cpu.toFixed(1)}</td>
-                  <td className="py-2 text-gray-300">{r.memory.toFixed(1)}</td>
-                  <td className="py-2 text-gray-300">{r.disk.toFixed(1)}</td>
-                  <td className="py-2 text-gray-300">{r.threat_category}</td>
+        <Card title="Security Assessment" className="xl:col-span-2">
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-grid">
+              <thead>
+                <tr className="text-[var(--color-text-dim)]">
+                  <th className="text-left pb-2">Last Seen</th>
+                  <th className="text-left pb-2">Endpoint</th>
+                  <th className="text-left pb-2">Agent</th>
+                  <th className="text-left pb-2">Risk</th>
+                  <th className="text-left pb-2">Score</th>
+                  <th className="text-left pb-2">CPU%</th>
+                  <th className="text-left pb-2">Mem%</th>
+                  <th className="text-left pb-2">Disk%</th>
+                  <th className="text-left pb-2">Category</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {assessPageData.map((r, i) => (
+                  <tr key={i} className="border-t border-[var(--color-border)]">
+                    <td className="py-2 text-xs whitespace-nowrap">{new Date(r.last_seen).toLocaleString()}</td>
+                    <td className="py-2 text-xs text-[var(--color-text)]">{r.endpoint}</td>
+                    <td className="py-2 text-xs text-[var(--color-text-dim)]">{r.agent_id.slice(0, 10)}…</td>
+                    <td className="py-2 text-xs"><Badge tone={r.risk_level>6?'high':r.risk_level>4?'medium':'low'}>{r.risk_level}</Badge></td>
+                    <td className="py-2 text-xs font-mono">{r.security_score.toFixed(1)}</td>
+                    <td className="py-2 text-xs">{r.cpu.toFixed(1)}</td>
+                    <td className="py-2 text-xs">{r.memory.toFixed(1)}</td>
+                    <td className="py-2 text-xs">{r.disk.toFixed(1)}</td>
+                    <td className="py-2 text-xs text-[var(--color-text-dim)]">{r.threat_category}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[var(--color-text-dim)] text-xs">
+            <div>Page {assessPage} of {assessPageCount}</div>
+            <div className="flex gap-2">
+              <button
+                disabled={assessPage===1}
+                onClick={() => setAssessPage(p => Math.max(1, p-1))}
+                className="px-2 py-1 rounded-md bg-[var(--color-surface-alt)] disabled:opacity-40 hover:bg-[var(--color-border)] focus-ring"
+              >Prev</button>
+              <button
+                disabled={assessPage===assessPageCount}
+                onClick={() => setAssessPage(p => Math.min(assessPageCount, p+1))}
+                className="px-2 py-1 rounded-md bg-[var(--color-surface-alt)] disabled:opacity-40 hover:bg-[var(--color-border)] focus-ring"
+              >Next</button>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
