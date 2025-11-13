@@ -5,6 +5,7 @@ import { ResponseAssignments } from './ResponseAssignments';
 import { MitreTechniques } from './MitreTechniques';
 import { SOCMetrics } from './SOCMetrics';
 import { AlertsTable } from './AlertsTable';
+import { DecisionQueue } from './DecisionQueue';
 
 export function Dashboard() {
   return (
@@ -62,8 +63,10 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
         <AlertsTable />
-        <MitreTechniques />
+        <DecisionQueue />
       </div>
+
+      <MitreTechniques />
     </div>
   );
 }
