@@ -38,6 +38,7 @@ Visit http://localhost:8002/docs for interactive API docs.
     - `postgresql+psycopg2://<user>:<password>@<neon_host>/<database>?sslmode=require`
   - `MANAGEMENT_SCHEMA` (optional): target schema name on Postgres (default: `management`).
   - `JWT_SECRET`, `JWT_EXPIRE_MINUTES`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` for auth.
+  - `DECISION_ENGINE_INTERVAL` (optional): seconds between automatic decision engine runs (e.g. `30`). If unset or `0`, runs only once at startup.
 
 ## Docker
 
@@ -61,6 +62,9 @@ docker run -p 8002:8002 --env DATABASE_DSN="postgresql+psycopg2://<user>:<passwo
 - `GET /api/alerts` – list alerts from analytics-service (backed by Postgres `public.alerts`)
   - Query params: `limit` (default 50), `offset`, `severity`, `event_type`, `agent_id`, `min_score`, `since`, `until`
 - `GET /api/alerts/{id}` – fetch a single alert by ID
+- `POST /api/decisions/run` – trigger decision generation pass (returns count created)
+- `GET /api/decisions?status=pending` – list decisions
+- `POST /api/decisions/{id}/execute` / `dismiss` – update decision status
 - `GET /api/metrics/security-events-24h` – total simulated security events (24h)
 - `GET /api/metrics/current-threat-level` – current 1–5 threat level
 - `GET /api/metrics/security-posture-score` – 0–100 posture score
@@ -75,6 +79,26 @@ docker run -p 8002:8002 --env DATABASE_DSN="postgresql+psycopg2://<user>:<passwo
 python -m scripts.init_db
 python -m scripts.sample_data
 python -m scripts.check_db  # verify tables in the 'management' schema (Postgres)
+
+### Synthetic system metrics for frontend charts
+
+If the real `system_info` table is empty, seed synthetic rows so metrics & charts render:
+
+```
+
+python -m scripts.generate_system_info_sample 50
+
+```
+
+### Manual decision generation
+
+Trigger a pass after new alerts arrive:
+
+```
+
+curl -X POST http://localhost:8002/api/decisions/run
+
+```
 
 ### Users
 
