@@ -57,7 +57,7 @@ export function DecisionQueue() {
       ) : error ? (
         <div className="text-red-400 text-sm">{error}</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-96 scrollbar-thin">
           <table className="min-w-full table-grid">
             <thead>
               <tr className="text-[var(--color-text-dim)]">
