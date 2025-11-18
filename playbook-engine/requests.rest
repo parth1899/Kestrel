@@ -1,0 +1,203 @@
+### Local Playbook Engine API (execution.mode=local, no remote agent HTTP calls)
+@base = http://localhost:9000
+@agent_id = windows-agent-001
+@pid = 4242
+@file_path = C:/Temp/demo-threat.txt
+@ip = 95.111.200.207
+@port = 21669
+@exec_id = 
+@mal_file = C:/Temp/mimikatz.exe
+@mal_pid = 
+
+### Health check
+GET {{base}}/health
+
+### Generate playbook (process, medium)
+POST {{base}}/api/playbooks/generate
+Content-Type: application/json
+
+{
+  "event_type": "process",
+  "severity": "medium",
+  "agent_id": "{{agent_id}}",
+  "details": { "pid": {{pid}} }
+}
+
+### Get playbook by id (replace with the id returned by generate, e.g., pb-process-medium)
+GET {{base}}/api/playbooks/pb-process-medium
+
+### Execute a playbook (requires Redis reachable; actions run locally)
+POST {{base}}/api/executions/run
+Content-Type: application/json
+
+{
+  "playbook_id": "pb-process-medium",
+  "alert": {
+    "event_type": "process",
+    "severity": "medium",
+    "agent_id": "{{agent_id}}",
+    "event_id": "evt-process-{{$guid}}",
+    "details": { "pid": {{pid}} }
+  }
+}
+
+### Get execution by id (paste the id from the run response)
+GET {{base}}/api/executions/{{exec_id}}
+
+### Notes
+# - Local mode: actions (kill_process, block_ip, quarantine_file) execute directly on this host.
+# - Requires Administrator for block_ip / isolate_host.
+# - Use Ctrl+Alt+R (REST Client) to send.
+# - RabbitMQ optional; set messaging.enabled=false and messaging.file_input for file ingestion.
+# - Set GROQ_API_KEY for Groq provider; otherwise uses stub/openai per config.
+
+### Generate playbook (sample from alerts_log.json - process/mimikatz)
+POST {{base}}/api/playbooks/generate
+Content-Type: application/json
+
+{
+  "event_type": "process",
+  "severity": "medium",
+  "agent_id": "{{agent_id}}",
+  "details": {
+    "pid": {{pid}},
+    "features": {
+      "process_name": "mimikatz.exe",
+      "command_line_len": 49,
+      "is_system_parent": false,
+      "vt_positives": 66,
+      "hash_known_malicious": true,
+      "yara_hits_count": 2,
+      "threat_score": 85.0,
+      "proc_freq_per_hour": 27,
+      "is_suspicious_path": true
+    }
+  }
+}
+
+### Generate playbook (sample from alerts_log.json - network)
+POST {{base}}/api/playbooks/generate
+Content-Type: application/json
+
+{
+  "event_type": "network",
+  "severity": "medium",
+  "agent_id": "{{agent_id}}",
+  "details": {
+    "ip": "{{ip}}",
+    "remote_port": {{port}}
+  }
+}
+
+### Execute the generated network playbook
+POST {{base}}/api/executions/run
+Content-Type: application/json
+
+{
+  "playbook_id": "pb-network-medium",
+  "alert": {
+    "event_type": "network",
+    "severity": "medium",
+    "agent_id": "{{agent_id}}",
+    "event_id": "evt-network-{{$guid}}",
+    "details": {
+      "ip": "{{ip}}",
+      "remote_port": {{port}}
+    }
+  }
+}
+
+### Generate playbook (file: quarantine demo file)
+POST {{base}}/api/playbooks/generate
+Content-Type: application/json
+
+{
+  "event_type": "file",
+  "severity": "medium",
+  "agent_id": "{{agent_id}}",
+  "details": {
+    "path": "{{file_path}}"
+  }
+}
+
+### Execute the generated file playbook
+POST {{base}}/api/executions/run
+Content-Type: application/json
+
+{
+  "playbook_id": "pb-file-medium",
+  "alert": {
+    "event_type": "file",
+    "severity": "medium",
+    "agent_id": "{{agent_id}}",
+    "event_id": "evt-file-{{$guid}}",
+    "details": {
+      "path": "{{file_path}}"
+    }
+  }
+}
+
+### Simulate malicious process (create & run locally before sending) 
+# PowerShell prep (run manually):
+#   New-Item -ItemType Directory -Path (Split-Path $Env:mal_file) -Force | Out-Null
+#   Copy-Item "$Env:SystemRoot\System32\notepad.exe" "{{mal_file}}" -Force
+#   $p = Start-Process -FilePath "{{mal_file}}" -ArgumentList "/stealcreds" -PassThru; $env:MAL_PID=$p.Id; Write-Host "PID=$($p.Id)" 
+# Fill @mal_pid above with the PID value.
+
+### Generate playbook (malicious process high severity)
+POST {{base}}/api/playbooks/generate
+Content-Type: application/json
+
+{
+  "event_type": "process",
+  "severity": "high",
+  "agent_id": "{{agent_id}}",
+  "details": {
+    "pid": {{mal_pid}},
+    "path": "{{mal_file}}",
+    "features": {
+      "process_name": "mimikatz.exe",
+      "command_line_len": 120,
+      "is_system_parent": false,
+      "vt_positives": 50,
+      "hash_known_malicious": true,
+      "yara_hits_count": 3,
+      "threat_score": 95.0,
+      "proc_freq_per_hour": 40,
+      "is_suspicious_path": true
+    }
+  }
+}
+
+### Execute generated malicious process playbook
+POST {{base}}/api/executions/run
+Content-Type: application/json
+
+{
+  "playbook_id": "pb-process-high",
+  "alert": {
+    "event_type": "process",
+    "severity": "high",
+    "agent_id": "{{agent_id}}",
+    "event_id": "evt-malproc-{{$guid}}",
+    "details": {
+      "pid": {{mal_pid}},
+      "path": "{{mal_file}}",
+      "features": {
+        "process_name": "mimikatz.exe",
+        "command_line_len": 120,
+        "is_system_parent": false,
+        "vt_positives": 50,
+        "hash_known_malicious": true,
+        "yara_hits_count": 3,
+        "threat_score": 95.0,
+        "proc_freq_per_hour": 40,
+        "is_suspicious_path": true
+      }
+    }
+  }
+}
+
+### Cleanup (run manually after testing)
+#   Stop-Process -Id {{mal_pid}} -Force
+#   Remove-Item -Path "{{mal_file}}" -Force

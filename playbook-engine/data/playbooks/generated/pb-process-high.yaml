@@ -1,0 +1,25 @@
+id: isolate_host_and_kill_process
+version: '1.0'
+metadata:
+  description: Isolate host and kill process
+  threat_level: high
+preconditions:
+- event_type: process
+  severity: high
+- agent_id: e2e-agent
+steps:
+- name: Isolate Host
+  action: isolate_host
+  params: {}
+- name: Kill Process
+  action: kill_process
+  params:
+    pid: 3588
+rollback:
+- name: Isolate Host
+  action: isolate_host
+  params: {}
+- name: Kill Process
+  action: kill_process
+  params:
+    pid: 3588

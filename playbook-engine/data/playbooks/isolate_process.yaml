@@ -1,0 +1,24 @@
+id: isolate_process
+version: '1.0'
+metadata:
+  description: Isolate a process
+  threat_level: high
+preconditions:
+- event_type: process
+  severity: high
+- agent_id: e2e-agent
+steps:
+- name: Isolate Host
+  action: isolate_host
+  params:
+    reason: Isolate the host to prevent further damage
+- name: Kill Process
+  action: kill_process
+  params:
+    pid: 9412
+    reason: Terminate the malicious process
+rollback:
+- name: Isolate Host
+  action: isolate_host
+  params:
+    reason: Re-enable the host after the threat is mitigated
