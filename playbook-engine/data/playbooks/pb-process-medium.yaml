@@ -1,0 +1,13 @@
+id: pb-process-medium
+version: '1.0'
+metadata:
+  event_type: process
+  severity: medium
+preconditions: []
+steps:
+- name: Kill malicious process
+  action: kill_process
+  params:
+    agent_id: windows-agent-001
+    pid: 4242
+rollback: []

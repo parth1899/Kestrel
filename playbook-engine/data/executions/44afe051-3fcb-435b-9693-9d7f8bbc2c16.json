@@ -1,0 +1,16 @@
+{
+  "id": "44afe051-3fcb-435b-9693-9d7f8bbc2c16",
+  "playbook_id": "pb-test",
+  "success": true,
+  "steps": [
+    {
+      "step": "Quarantine",
+      "action": "quarantine_file",
+      "status": "ok",
+      "output": {
+        "quarantined_to": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\quarantine\\malicious.bin.055e63f0.quar"
+      }
+    }
+  ],
+  "rolled_back": false
+}

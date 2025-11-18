@@ -1,0 +1,13 @@
+id: pb-file-medium
+version: '1.0'
+metadata:
+  event_type: file
+  severity: medium
+preconditions: []
+steps:
+- name: Quarantine file
+  action: quarantine_file
+  params:
+    agent_id: e2e-agent
+    path: C:/Users/Nishant/AppData/Local/Temp/pytest-of-Nishant/pytest-15/test_e2e_file_quarantine0/e2e-mal.bin
+rollback: []

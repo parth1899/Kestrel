@@ -1,0 +1,13 @@
+actions:
+  isolate_host:
+    params: []
+    description: "Disconnect endpoint from network"
+  kill_process:
+    params: [pid]
+    description: "Terminate a process by PID"
+  block_ip:
+    params: [ip]
+    description: "Block outbound connection to IP"
+  quarantine_file:
+    params: [path]
+    description: "Move file to quarantine vault"

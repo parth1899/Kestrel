@@ -1,0 +1,20 @@
+id: e2e-file-quarantine
+version: '1.0'
+metadata:
+  name: File Quarantine
+  description: Quarantine a malicious file
+preconditions:
+- event_type: file
+  severity: medium
+- agent_id: e2e-agent
+steps:
+- name: Quarantine File
+  action: quarantine_file
+  params:
+    path: C:/Users/Nishant/AppData/Local/Temp/pytest-of-Nishant/pytest-16/test_e2e_file_quarantine0/e2e-mal.bin
+rollback:
+- name: Quarantine File
+  action: quarantine_file
+  params:
+    path: C:/Users/Nishant/AppData/Local/Temp/pytest-of-Nishant/pytest-16/test_e2e_file_quarantine0/e2e-mal.bin
+    action: restore

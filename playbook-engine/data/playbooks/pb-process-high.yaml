@@ -1,0 +1,13 @@
+id: pb-process-high
+version: '1.0'
+metadata:
+  event_type: process
+  severity: high
+preconditions: []
+steps:
+- name: Kill malicious process
+  action: kill_process
+  params:
+    agent_id: e2e-agent
+    pid: 37188
+rollback: []
