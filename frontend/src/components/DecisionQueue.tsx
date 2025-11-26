@@ -53,7 +53,11 @@ export function DecisionQueue() {
       actions={<button className="px-3 py-1 rounded-md bg-[var(--color-accent)] text-white text-xs hover:brightness-110 focus-ring" onClick={load}>Refresh</button>}
     >
       {loading ? (
-        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} height={18} />)}</div>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={`skeleton-${i}`} height={18} />
+          ))}
+        </div>
       ) : error ? (
         <div className="text-red-400 text-sm">{error}</div>
       ) : (

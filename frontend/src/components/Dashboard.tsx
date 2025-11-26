@@ -12,11 +12,7 @@ import { Card } from './ui/Card';
 
 export function Dashboard() {
   return (
-    <div className="min-h-screen flex bg-[var(--color-bg)] text-[var(--color-text)]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen">
-        <TopBar />
-        <main className="p-6 space-y-8">
+        <div className="p-6 space-y-8">
           <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6">
             <div className="2xl:col-span-2 space-y-6">
               <SOCMetrics />
@@ -46,9 +42,7 @@ export function Dashboard() {
               </Card>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
   );
 }
 

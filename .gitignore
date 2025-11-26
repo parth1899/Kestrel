@@ -12,3 +12,8 @@ GeoLite2-City.mmdb
 fixtures/
 __pycache__
 myenv
+Components Breakdown - 5 Components.pdf
+components.pdf
+docs/ComponentDiagram.md
+SystemImplementationTemplate.pdf
+.gitignore

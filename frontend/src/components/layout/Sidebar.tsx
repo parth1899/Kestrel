@@ -1,15 +1,20 @@
 import React from 'react';
 import { Badge } from '../ui/Badge';
 
+type SidebarProps = {
+  currentView: string;
+  onNavigate: (view: 'dashboard' | 'playbooks') => void;
+};
+
 const navItems = [
   { key: 'dashboard', label: 'Dashboard' },
+  { key: 'playbooks', label: 'Playbooks' },
   { key: 'alerts', label: 'Alerts' },
-  { key: 'decisions', label: 'Decisions' },
   { key: 'endpoints', label: 'Endpoints' },
   { key: 'analytics', label: 'Analytics' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ currentView, onNavigate }: SidebarProps) {
   return (
     <aside className="hidden lg:flex flex-col w-60 shrink-0 px-4 py-6 border-r border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="mb-8">
@@ -20,7 +25,16 @@ export function Sidebar() {
         {navItems.map(item => (
           <button
             key={item.key}
-            className="w-full text-left px-3 py-2 rounded-md text-sm text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-alt)] focus-ring transition"
+            onClick={() => {
+              if (item.key === 'dashboard' || item.key === 'playbooks') {
+                onNavigate(item.key);
+              }
+            }}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm transition ${
+              currentView === item.key
+                ? 'bg-[var(--color-action)] text-white'
+                : 'text-[var(--color-text-dim)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-alt)]'
+            }`}
           >{item.label}</button>
         ))}
       </nav>
