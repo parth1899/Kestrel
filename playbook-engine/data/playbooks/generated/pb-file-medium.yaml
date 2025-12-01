@@ -1,24 +1,19 @@
-id: isolate_host_and_quarantine_file
+id: e2e-malware-quarantine
 version: '1.0'
 metadata:
-  description: Isolate host and quarantine malicious file
+  description: Quarantine malware file
   threat_level: medium
 preconditions:
-- agent_id: a-2
 - event_type: file
+  severity: medium
+- agent_id: e2e-agent
 steps:
-- name: Isolate Host
-  action: isolate_host
-  params: {}
 - name: Quarantine File
   action: quarantine_file
   params:
-    path: C:/tmp/mal.doc
+    path: C:/Users/Nishant/AppData/Local/Temp/pytest-of-Nishant/pytest-2/test_e2e_file_quarantine0/e2e-mal.bin
 rollback:
-- name: Isolate Host
-  action: isolate_host
-  params: {}
 - name: Quarantine File
   action: quarantine_file
   params:
-    path: C:/tmp/mal.doc
+    path: C:/Users/Nishant/AppData/Local/Temp/pytest-of-Nishant/pytest-2/test_e2e_file_quarantine0/e2e-mal.bin
