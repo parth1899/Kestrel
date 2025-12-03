@@ -188,3 +188,21 @@
 {"ts": "2025-11-18T13:03:36.664926Z", "event": "step_skipped", "step": "Isolate Host", "action": "isolate_host", "reason": "not_allowed_or_not_admin"}
 {"ts": "2025-11-18T13:03:36.852932Z", "event": "step_executed", "step": "Block Ip", "action": "block_ip", "output": {"in": {"code": 0, "stdout": "Ok.", "stderr": ""}, "out": {"code": 0, "stdout": "Ok.", "stderr": ""}}}
 {"ts": "2025-11-18T13:03:36.852932Z", "event": "execution_completed", "id": "04c30b18-9155-46f5-a0ff-67d59e5118d9", "playbook_id": "network-threat-isolation", "success": true}
+{"ts": "2025-12-01T14:44:36.094346Z", "event": "playbook_generated", "playbook_id": "pb-file-medium", "path": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\playbooks\\generated\\pb-file-medium.yaml"}
+{"ts": "2025-12-01T14:44:37.294233Z", "event": "execution_started", "id": "df50e11e-c96a-45ab-89cd-0d22afeb8241", "playbook_id": "quarantine_malicious_file"}
+{"ts": "2025-12-01T14:44:37.294233Z", "event": "step_executed", "step": "Quarantine File", "action": "quarantine_file", "output": {"quarantined_to": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\quarantine\\api-e2e-mal.bin.7b3e6a7b.quar"}}
+{"ts": "2025-12-01T14:44:37.294233Z", "event": "execution_completed", "id": "df50e11e-c96a-45ab-89cd-0d22afeb8241", "playbook_id": "quarantine_malicious_file", "success": true}
+{"ts": "2025-12-01T14:44:38.514267Z", "event": "playbook_generated", "playbook_id": "pb-process-high", "path": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\playbooks\\generated\\pb-process-high.yaml"}
+{"ts": "2025-12-01T14:44:38.530194Z", "event": "execution_started", "id": "93b1d23c-9f53-46ec-93d2-b1e8b0be1101", "playbook_id": "isolate_host_and_kill_process"}
+{"ts": "2025-12-01T14:44:38.530194Z", "event": "step_skipped", "step": "Isolate Host", "action": "isolate_host", "reason": "not_allowed_or_not_admin"}
+{"ts": "2025-12-01T14:44:38.662493Z", "event": "step_executed", "step": "Kill Process", "action": "kill_process", "output": {"status": "already_terminated", "pid": 23876}}
+{"ts": "2025-12-01T14:44:38.662493Z", "event": "execution_completed", "id": "93b1d23c-9f53-46ec-93d2-b1e8b0be1101", "playbook_id": "isolate_host_and_kill_process", "success": true}
+{"ts": "2025-12-01T14:45:17.680519Z", "event": "playbook_generated", "playbook_id": "pb-file-medium", "path": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\playbooks\\generated\\pb-file-medium.yaml"}
+{"ts": "2025-12-01T14:45:18.947177Z", "event": "execution_started", "id": "d9518b79-567f-47ec-bfa8-03c963584dc7", "playbook_id": "e2e-malware-quarantine"}
+{"ts": "2025-12-01T14:45:18.947177Z", "event": "step_executed", "step": "Quarantine File", "action": "quarantine_file", "output": {"quarantined_to": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\quarantine\\e2e-mal.bin.a347a95f.quar"}}
+{"ts": "2025-12-01T14:45:18.947177Z", "event": "execution_completed", "id": "d9518b79-567f-47ec-bfa8-03c963584dc7", "playbook_id": "e2e-malware-quarantine", "success": true}
+{"ts": "2025-12-01T14:45:19.838745Z", "event": "playbook_generated", "playbook_id": "pb-process-high", "path": "D:\\nishant\\GitHub\\Kestrel\\playbook-engine\\data\\playbooks\\generated\\pb-process-high.yaml"}
+{"ts": "2025-12-01T14:45:20.139886Z", "event": "execution_started", "id": "55a807f2-751c-43d2-9ab9-f81230a110f2", "playbook_id": "isolate_process"}
+{"ts": "2025-12-01T14:45:20.139886Z", "event": "step_skipped", "step": "Isolate Host", "action": "isolate_host", "reason": "not_allowed_or_not_admin"}
+{"ts": "2025-12-01T14:45:20.219092Z", "event": "step_executed", "step": "Kill Process", "action": "kill_process", "output": {"status": "already_terminated", "pid": 17900}}
+{"ts": "2025-12-01T14:45:20.219092Z", "event": "execution_completed", "id": "55a807f2-751c-43d2-9ab9-f81230a110f2", "playbook_id": "isolate_process", "success": true}

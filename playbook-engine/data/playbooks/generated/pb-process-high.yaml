@@ -1,7 +1,7 @@
-id: isolate_host_and_kill_process
+id: isolate_process
 version: '1.0'
 metadata:
-  description: Isolate host and kill process
+  description: Isolate a process to prevent further damage
   threat_level: high
 preconditions:
 - event_type: process
@@ -10,16 +10,15 @@ preconditions:
 steps:
 - name: Isolate Host
   action: isolate_host
-  params: {}
+  params:
+    reason: Isolate the host to prevent further damage
 - name: Kill Process
   action: kill_process
   params:
-    pid: 3588
+    pid: 17900
+    reason: Kill the malicious process
 rollback:
 - name: Isolate Host
   action: isolate_host
-  params: {}
-- name: Kill Process
-  action: kill_process
   params:
-    pid: 3588
+    reason: Re-enable the host to restore normal functionality

@@ -722,3 +722,19 @@ rollback.1.action
 </div>
 </body>
 </html>
+2025-12-01 20:11:52,518 [INFO] playbook_engine: Playbook Engine started
+2025-12-01 20:11:55,389 [INFO] playbook_engine: Playbook Engine started
+2025-12-01 20:11:55,464 [WARNING] playbook_engine: Redis lock unavailable (Event loop is closed); proceeding without lock for exec:api-e2e:api-proc-1
+2025-12-01 20:14:34,178 [INFO] playbook_engine: Playbook Engine started
+2025-12-01 20:14:34,258 [INFO] playbook_engine: Using CrewAI multi-agent pipeline with groq/llama-3.1-8b-instant
+2025-12-01 20:14:34,259 [WARNING] playbook_engine: CrewAI pipeline failed: Fallback to LiteLLM is not available; falling back to single LLM call
+2025-12-01 20:14:37,859 [INFO] playbook_engine: Playbook Engine started
+2025-12-01 20:14:37,939 [INFO] playbook_engine: Using CrewAI multi-agent pipeline with groq/llama-3.1-8b-instant
+2025-12-01 20:14:37,939 [WARNING] playbook_engine: CrewAI pipeline failed: Fallback to LiteLLM is not available; falling back to single LLM call
+2025-12-01 20:14:38,530 [WARNING] playbook_engine: Redis lock unavailable (Event loop is closed); proceeding without lock for exec:api-e2e:api-proc-1
+2025-12-01 20:14:38,662 [INFO] playbook_engine: Process 23876 already terminated
+2025-12-01 20:15:16,094 [INFO] playbook_engine: Using CrewAI multi-agent pipeline with groq/llama-3.1-8b-instant
+2025-12-01 20:15:16,095 [WARNING] playbook_engine: CrewAI pipeline failed: Fallback to LiteLLM is not available; falling back to single LLM call
+2025-12-01 20:15:19,253 [INFO] playbook_engine: Using CrewAI multi-agent pipeline with groq/llama-3.1-8b-instant
+2025-12-01 20:15:19,253 [WARNING] playbook_engine: CrewAI pipeline failed: Fallback to LiteLLM is not available; falling back to single LLM call
+2025-12-01 20:15:20,204 [INFO] playbook_engine: Process 17900 already terminated
