@@ -49,7 +49,7 @@ def load_config() -> Dict[str, Any]:
             "provider": os.getenv("GENAI_PROVIDER", "openai"),
             "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
             "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", ""),
-            "groq_api_key": os.getenv("GROQ_API_KEY", "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"),
+            "groq_api_key": os.getenv("GROQ_API_KEY", ""),
             "model": os.getenv("GENAI_MODEL", "gpt-4o-mini"),
         },
         "execution": {
