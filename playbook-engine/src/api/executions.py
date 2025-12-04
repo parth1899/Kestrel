@@ -21,14 +21,20 @@ class RunRequest(BaseModel):
 async def run(req: RunRequest):
     cfg = load_config()
     file = None
+    print("=====================")
+    print(req)
     for base in (cfg["data"]["playbooks_static"], cfg["data"]["playbooks_generated"]):
-        cand = Path(base) / f"{req.playbook_id}.yaml"
+        cand = Path(base) / f"pb-{req.alert['event_type']}-{req.alert['severity']}.yaml"
         if cand.exists():
             file = cand
             break
     if not file:
         raise HTTPException(status_code=404, detail="Playbook not found")
+    print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    print(file)
     pb = parse_playbook_yaml(file)
+    print("**********************************")
+    print(pb)
     result = await execute_playbook(pb, req.alert)
     return result.model_dump()
 
