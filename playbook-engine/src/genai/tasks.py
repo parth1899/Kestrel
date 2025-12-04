@@ -1,5 +1,5 @@
 """
-CrewAI Tasks for Multi-Agent Playbook Generation
+Phidata Tasks for Multi-Agent Playbook Generation
 
 Defines the three sequential tasks that agents perform:
 1. Extract and structure requirements from alert
@@ -7,12 +7,10 @@ Defines the three sequential tasks that agents perform:
 3. Review and refine playbook to final production quality
 """
 
-from crewai import Task
-from crewai import Agent
 from typing import Dict, Any
 
 
-def create_requirements_task(agent: Agent, alert: Dict[str, Any], actions_catalog: str) -> Task:
+def create_requirements_task_prompt(alert: Dict[str, Any], actions_catalog: str) -> str:
     """
     Task 1: Extract Requirements
     
@@ -51,18 +49,10 @@ Provide a structured analysis with:
 - Preconditions (what should be checked before running)
 - Rollback Strategy (how to undo actions if needed)
 """
-    
-    return Task(
-        description=description,
-        agent=agent,
-        expected_output=(
-            "A structured requirements specification containing threat assessment, "
-            "recommended actions, required parameters, preconditions, and rollback strategy"
-        ),
-    )
+    return description
 
 
-def create_drafting_task(agent: Agent, alert: Dict[str, Any]) -> Task:
+def create_drafting_task_prompt(alert: Dict[str, Any]) -> str:
     """
     Task 2: Draft Playbook
     
@@ -118,18 +108,10 @@ IMPORTANT GUIDELINES:
 OUTPUT:
 Provide ONLY the complete YAML playbook, with no additional text or markdown formatting.
 """
-    
-    return Task(
-        description=description,
-        agent=agent,
-        expected_output=(
-            f"A complete YAML playbook with id 'pb-{event_type}-{severity}' containing "
-            "metadata, preconditions, action steps with parameters, and rollback procedures"
-        ),
-    )
+    return description
 
 
-def create_review_task(agent: Agent, alert: Dict[str, Any]) -> Task:
+def create_review_task_prompt(alert: Dict[str, Any]) -> str:
     """
     Task 3: Review & Refine
     
@@ -176,12 +158,4 @@ Provide the FINAL, REFINED YAML playbook with all improvements applied.
 Output ONLY the YAML content with no markdown code fences, explanations, or additional text.
 The output should be ready to be parsed directly as YAML.
 """
-    
-    return Task(
-        description=description,
-        agent=agent,
-        expected_output=(
-            f"A polished, production-ready YAML playbook for {event_type}/{severity} alerts "
-            "with validated syntax, complete parameters, and proper structure"
-        ),
-    )
+    return description
