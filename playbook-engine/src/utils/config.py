@@ -26,8 +26,8 @@ def load_config() -> Dict[str, Any]:
         "data": {
             "base_dir": str(BASE_DIR / "data"),
             "playbooks_static": str(BASE_DIR / "data" / "playbooks" / "static"),
-            # default generated playbooks under data/playbooks/generated
-            "playbooks_generated": str(BASE_DIR / "data" / "playbooks" / "generated"),
+            # default generated playbooks under data/playbooks/playbooks_generated
+            "playbooks_generated": str(BASE_DIR / "data" / "playbooks" / "playbooks_generated"),
             # default execution JSON artifacts under data/executions
             "executions": str(BASE_DIR / "data" / "executions"),
             "quarantine": str(BASE_DIR / "data" / "quarantine"),
@@ -76,7 +76,7 @@ def load_config() -> Dict[str, Any]:
     default_data = {
         "base_dir": str(BASE_DIR / "data"),
         "playbooks_static": str(BASE_DIR / "data" / "playbooks" / "static"),
-        "playbooks_generated": str(BASE_DIR / "data" / "playbooks" / "generated"),
+        "playbooks_generated": str(BASE_DIR / "data" / "pgptlaybooks" / "playbooks_generated"),
         "executions": str(BASE_DIR / "data" / "executions"),
         "quarantine": str(BASE_DIR / "data" / "quarantine"),
     }

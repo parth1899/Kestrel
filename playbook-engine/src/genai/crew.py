@@ -1,21 +1,20 @@
 """
-CrewAI Crew Orchestrator for Multi-Agent Playbook Generation
+Phidata Orchestrator for Multi-Agent Playbook Generation
 
 Coordinates the three-agent pipeline:
 1. Requirements Extraction → 2. Playbook Drafting → 3. Review & Refinement
 """
 
-from crewai import Crew, Process
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .agents import (
     create_requirements_agent,
     create_drafting_agent,
     create_review_agent,
 )
 from .tasks import (
-    create_requirements_task,
-    create_drafting_task,
-    create_review_task,
+    create_requirements_task_prompt,
+    create_drafting_task_prompt,
+    create_review_task_prompt,
 )
 
 
@@ -29,21 +28,26 @@ class PlaybookGenerationCrew:
     - Layer 3: Review Agent validates and refines output
     """
     
-    def __init__(self, llm: str = None):
+    def __init__(self, groq_model: Optional[str] = None):
         """
         Initialize the crew with three specialized agents.
         
         Args:
-            llm: Optional LLM configuration string (e.g., 'groq/llama-3.1-8b-instant')
+            groq_model: Optional Groq model name (e.g., 'llama-3.1-8b-instant')
         """
-        self.llm = llm
-        self.requirements_agent = create_requirements_agent(llm)
-        self.drafting_agent = create_drafting_agent(llm)
-        self.review_agent = create_review_agent(llm)
+        self.groq_model = groq_model or "llama-3.1-8b-instant"
+        self.requirements_agent = create_requirements_agent(self.groq_model)
+        self.drafting_agent = create_drafting_agent(self.groq_model)
+        self.review_agent = create_review_agent(self.groq_model)
     
     def generate_playbook(self, alert: Dict[str, Any], actions_catalog: str) -> str:
         """
         Execute the three-agent pipeline to generate a refined playbook.
+        
+        Pipeline flow:
+        1. Requirements agent analyzes alert and creates structured requirements
+        2. Drafting agent creates complete YAML playbook
+        3. Review agent validates and refines the playbook
         
         Args:
             alert: Security alert dictionary with event_type, severity, details
@@ -52,55 +56,41 @@ class PlaybookGenerationCrew:
         Returns:
             Final YAML playbook string (validated and refined)
         """
-        # Create the three sequential tasks
-        task1 = create_requirements_task(
-            agent=self.requirements_agent,
-            alert=alert,
-            actions_catalog=actions_catalog
-        )
+        # Step 1: Requirements extraction
+        requirements_prompt = create_requirements_task_prompt(alert, actions_catalog)
+        requirements_result = self.requirements_agent.run(requirements_prompt)
         
-        task2 = create_drafting_task(
-            agent=self.drafting_agent,
-            alert=alert
-        )
+        # Step 2: Playbook drafting
+        drafting_context = f"""
+Based on these requirements:
+{requirements_result}
+
+Now create the playbook:
+"""
+        drafting_prompt = create_drafting_task_prompt(alert)
+        drafting_result = self.drafting_agent.run(drafting_context + drafting_prompt)
         
-        task3 = create_review_task(
-            agent=self.review_agent,
-            alert=alert
-        )
+        # Step 3: Review and refinement
+        review_context = f"""
+Here is the draft playbook to review:
+{drafting_result}
+
+Now provide the final refined version:
+"""
+        review_prompt = create_review_task_prompt(alert)
+        final_playbook = self.review_agent.run(review_context + review_prompt)
         
-        # Create crew with sequential process
-        crew = Crew(
-            agents=[
-                self.requirements_agent,
-                self.drafting_agent,
-                self.review_agent,
-            ],
-            tasks=[task1, task2, task3],
-            process=Process.sequential,
-            verbose=True,
-        )
-        
-        # Execute the pipeline
-        result = crew.kickoff()
-        
-        # Extract the final YAML from the result
-        if hasattr(result, 'raw'):
-            return result.raw
-        elif isinstance(result, str):
-            return result
-        else:
-            return str(result)
+        return final_playbook
 
 
-def create_crew(llm: str = None) -> PlaybookGenerationCrew:
+def create_crew(groq_model: Optional[str] = None) -> PlaybookGenerationCrew:
     """
     Factory function to create a new playbook generation crew.
     
     Args:
-        llm: Optional LLM configuration string
+        groq_model: Optional Groq model name
     
     Returns:
         Initialized PlaybookGenerationCrew instance
     """
-    return PlaybookGenerationCrew(llm=llm)
+    return PlaybookGenerationCrew(groq_model=groq_model)

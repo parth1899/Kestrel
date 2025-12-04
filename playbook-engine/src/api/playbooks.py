@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
 from pathlib import Path
+import json
 
 from ..utils.logger import audit
 from ..utils.config import load_config
@@ -14,18 +15,23 @@ router = APIRouter(prefix="/playbooks", tags=["playbooks"])
 
 
 class AlertIn(BaseModel):
+    id: Optional[str] = None
     event_id: Optional[str] = None
     agent_id: Optional[str] = None
     event_type: str
+    score: Optional[float] = None
     severity: str
+    source: Optional[str] = None
     details: Dict[str, Any] = {}
 
 
 @router.post("/generate")
 async def generate(alert: AlertIn):
-    existing = find_existing_playbook(alert.model_dump())
-    if existing:
-        return {"status": "exists", "path": str(existing)}
+    print("=============")
+    print(alert)
+    # existing = find_existing_playbook(alert.model_dump())
+    # if existing:
+    #     return {"status": "exists", "path": str(existing)}
     path = await generate_playbook(alert.model_dump())
     return {"status": "generated", "path": str(path)}
 

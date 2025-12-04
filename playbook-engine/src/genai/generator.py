@@ -10,15 +10,19 @@ from ..core.parser import parse_playbook_text, PlaybookValidationError
 from .prompts import build_prompt
 import yaml
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # LLM providers are optional; we fallback to deterministic generation if keys absent.
 
-# CrewAI multi-agent system for advanced playbook generation
+# Phidata multi-agent system for advanced playbook generation
 try:
     from .crew import create_crew
-    CREWAI_AVAILABLE = True
+    PHIDATA_AVAILABLE = True
 except ImportError:
-    CREWAI_AVAILABLE = False
-    logger.warning("CrewAI not available; will use single LLM call fallback")
+    PHIDATA_AVAILABLE = False
+    logger.warning("Phidata not available; will use single LLM call fallback")
 
 async def _call_openai(prompt: Dict[str, str], model: str, api_key: str) -> str:
     from openai import OpenAI
@@ -67,9 +71,9 @@ async def _call_groq(prompt: Dict[str, str], model: str, api_key: str) -> str:
     return resp.choices[0].message.content or ""
 
 
-async def _call_crewai_pipeline(alert: Dict[str, Any], actions_catalog: str, provider: str, model: str) -> str:
+async def _call_phidata_pipeline(alert: Dict[str, Any], actions_catalog: str, provider: str, model: str) -> str:
     """
-    Execute the three-agent CrewAI pipeline for playbook generation.
+    Execute the three-agent Phidata pipeline for playbook generation.
     
     Pipeline:
     1. Requirements Extraction Agent - Analyzes alert and structures requirements
@@ -85,14 +89,15 @@ async def _call_crewai_pipeline(alert: Dict[str, Any], actions_catalog: str, pro
     Returns:
         Final refined YAML playbook string
     """
-    if not CREWAI_AVAILABLE:
-        raise ImportError("CrewAI is not installed")
+    if not PHIDATA_AVAILABLE:
+        raise ImportError("Phidata is not installed")
     
-    # Configure LLM string for CrewAI (format: provider/model)
-    llm_config = f"{provider}/{model}" if provider and model else None
+    # Use Groq model (Phidata natively supports Groq)
+    # Extract just the model name if provider/model format is used
+    groq_model = model if isinstance(model, str) else None
     
     # Create and execute the crew
-    crew = create_crew(llm=llm_config)
+    crew = create_crew(groq_model=groq_model)
     yaml_text = crew.generate_playbook(alert=alert, actions_catalog=actions_catalog)
     
     return yaml_text
@@ -105,10 +110,16 @@ def _deterministic_playbook(alert: Dict[str, Any]) -> str:
     aid = alert.get("agent_id", "unknown")
     steps = []
     if event_type == "process":
-        pid = (alert.get("details", {}) or {}).get("pid", 0)
+        details = (alert.get("details") or {})
+        # Attempt common keys for PID across different alert shapes
+        pid = details.get("pid") or details.get("process_id") or details.get("processPid") or 0
+        # also check nested features object (e.g. details.features.process_id)
+        if not pid:
+            feats = details.get("features") or {}
+            pid = feats.get("process_id") or feats.get("processPid") or feats.get("pid") or 0
         # Remove isolate_host from deterministic fallback to keep E2E stable (admin requirement causes flaky failures)
         steps = [
-            {"name": "Kill malicious process", "action": "kill_process", "params": {"pid": pid}},
+            {"name": "Kill malicious process", "action": "kill_process", "params": {"pid": int(pid)}},
         ]
     elif event_type == "network":
         ip = (alert.get("details", {}) or {}).get("ip", "0.0.0.0")
@@ -222,7 +233,7 @@ async def generate_playbook(alert: Dict[str, Any]) -> Path:
     cfg = load_config()
     actions = load_actions_schema()
     
-    # Build actions catalog string for CrewAI/prompts
+    # Build actions catalog string for Phidata/prompts
     actions_catalog_lines = []
     for act_name, act_def in actions.items():
         params = act_def.get("params", [])
@@ -236,27 +247,25 @@ async def generate_playbook(alert: Dict[str, Any]) -> Path:
     model = cfg["genai"]["model"]
     yaml_text: Optional[str] = None
 
-    # Try CrewAI multi-agent pipeline first if available and not in stub mode
-    if provider != "stub" and CREWAI_AVAILABLE:
+    # Try Phidata multi-agent pipeline first if available and not in stub mode
+    if provider != "stub" and PHIDATA_AVAILABLE:
         try:
-            # Ensure API key is available for the provider
+            # Ensure API key is available for Groq
             api_key_present = False
-            if provider == "openai" and cfg["genai"].get("openai_api_key"):
-                api_key_present = True
-            elif provider == "anthropic" and cfg["genai"].get("anthropic_api_key"):
-                api_key_present = True
-            elif provider == "groq" and cfg["genai"].get("groq_api_key"):
+            if provider == "groq" and cfg["genai"].get("groq_api_key"):
                 api_key_present = True
             
             if api_key_present:
-                logger.info(f"Using CrewAI multi-agent pipeline with {provider}/{model}")
-                yaml_text = await _call_crewai_pipeline(alert, actions_catalog, provider, model)
+                logger.info(f"Using Phidata multi-agent pipeline with {provider}/{model}")
+                yaml_text = await _call_phidata_pipeline(alert, actions_catalog, provider, model)
+                print("=========================YAML TEXT===============")
+                print(yaml_text)
             else:
                 logger.warning(f"No API key for {provider}; falling back to single LLM call or stub")
         except Exception as e:
-            logger.warning(f"CrewAI pipeline failed: {e}; falling back to single LLM call")
+            logger.warning(f"Phidata pipeline failed: {e}; falling back to single LLM call")
     
-    # Fallback to single LLM call if CrewAI not available or failed
+    # Fallback to single LLM call if Phidata not available or failed
     if yaml_text is None:
         prompt = build_prompt(alert, actions)
         try:
@@ -265,7 +274,7 @@ async def generate_playbook(alert: Dict[str, Any]) -> Path:
             elif provider == "anthropic" and cfg["genai"].get("anthropic_api_key"):
                 yaml_text = await _call_anthropic(prompt, model, cfg["genai"]["anthropic_api_key"])  # type: ignore[arg-type]
             elif provider == "groq" and cfg["genai"].get("groq_api_key"):
-                yaml_text = await _call_groq(prompt, model, cfg["genai"]["groq_api_key"])  # type: ignore[arg-type]
+                yaml_text = await _call_groq(prompt, model, os.getenv("GROQ_API_KEY"))  # type: ignore[arg-type]
             else:
                 yaml_text = _deterministic_playbook(alert)
         except Exception as e:
