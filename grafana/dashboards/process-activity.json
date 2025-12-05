@@ -186,7 +186,7 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT \n  $__timeGroup(timestamp,'5m') as time,\n  COUNT(*) as \"Events per 5min\"\nFROM process_events \nWHERE $__timeFilter(timestamp)\nGROUP BY time\nORDER BY time",
+          "rawSql": "WITH time_buckets AS (\n  SELECT generate_series(\n    $__timeFrom(),\n    $__timeTo(),\n    INTERVAL '5 minutes'\n  ) AS bucket\n),\nagg AS (\n  SELECT \n    DATE_TRUNC('minute', timestamp) AS ts_min,\n    COUNT(*) AS events_per_5min\n  FROM process_events\n  WHERE $__timeFilter(timestamp)\n  GROUP BY DATE_TRUNC('minute', timestamp)\n)\nSELECT \n  tb.bucket AS time,\n  COALESCE(a.events_per_5min, 0) AS \"Events per 5min\"\nFROM time_buckets tb\nLEFT JOIN agg a ON a.ts_min = tb.bucket\nORDER BY time",
           "refId": "A",
           "select": [
             [

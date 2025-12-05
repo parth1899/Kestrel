@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, DateTime, Text
+
 from sqlalchemy.sql import func
 import uuid
 

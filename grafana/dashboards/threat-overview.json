@@ -279,7 +279,7 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) as \"Threat Indicators\"\nFROM threat_indicators \nWHERE timestamp >= NOW() - INTERVAL '24 hours'\n  AND status NOT IN ('resolved', 'false_positive')",
+          "rawSql": "SELECT COUNT(*) AS \"Active Threats\"\nFROM alerts\nWHERE $__timeFilter(created_at)\n  AND severity IN ('high','critical')",
           "refId": "A"
         }
       ],
@@ -547,7 +547,7 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT \n  timestamp as \"Timestamp\",\n  threat_type as \"Threat Type\",\n  description as \"Description\",\n  confidence as \"Confidence\",\n  severity as \"Severity\",\n  status as \"Status\"\nFROM threat_indicators \nWHERE timestamp >= NOW() - INTERVAL '24 hours'\nORDER BY timestamp DESC, confidence DESC\nLIMIT 20",
+          "rawSql": "SELECT \n  created_at AS \"Timestamp\",\n  event_type AS \"Threat Type\",\n  details::text AS \"Description\",\n  score AS \"Confidence\",\n  severity AS \"Severity\",\n  'active' AS \"Status\"\nFROM alerts\nWHERE $__timeFilter(created_at)\nORDER BY created_at DESC, score DESC\nLIMIT 20",
           "refId": "A"
         }
       ],
