@@ -50,16 +50,32 @@ def _is_admin_windows() -> bool:
 
 async def _run_exec(*args: str) -> Dict[str, Any]:
     """Run a subprocess and return code/stdout/stderr; raise on non-zero code."""
-    proc = await asyncio.create_subprocess_exec(
-        *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-    )
-    out_b, err_b = await proc.communicate()
-    code = proc.returncode
-    out = (out_b or b"").decode(errors="ignore").strip()
-    err = (err_b or b"").decode(errors="ignore").strip()
-    if code != 0:
-        raise RuntimeError(f"command failed ({code}): {' '.join(args)} | {err or out}")
-    return {"code": code, "stdout": out, "stderr": err}
+    logger.info(f"Executing command: {' '.join(args)}")
+    try:
+        # Use sync subprocess.run in executor to avoid Windows asyncio issues
+        import subprocess
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                check=False
+            )
+        )
+        logger.info(f"Process completed")
+        code = result.returncode
+        out = result.stdout.strip() if result.stdout else ""
+        err = result.stderr.strip() if result.stderr else ""
+        logger.info(f"Command completed: code={code}, stdout={repr(out)}, stderr={repr(err)}")
+        if code != 0:
+            error_msg = f"command failed (code={code}): {' '.join(args)} | stdout: {out} | stderr: {err}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        return {"code": code, "stdout": out, "stderr": err}
+    except Exception as e:
+        logger.error(f"Exception in _run_exec: {type(e).__name__}: {e}")
+        raise
 
 
 def _quarantine_dir() -> Path:
@@ -117,15 +133,21 @@ async def action_kill_process(params: Dict[str, Any]) -> Dict[str, Any]:
     if not _is_windows():
         raise NotImplementedError("kill_process is implemented for Windows only in local mode")
     pid = int(params["pid"])
+    logger.info(f"Attempting to kill process PID={pid}")
     # Force terminate the PID; treat 'not found' as already terminated (idempotent)
     try:
         res = await _run_exec("taskkill", "/PID", str(pid), "/F")
+        logger.info(f"Successfully killed process PID={pid}")
         return {"status": "killed", "pid": pid, **res}
     except RuntimeError as e:
         msg = str(e).lower()
+        logger.warning(f"RuntimeError killing PID {pid}: {msg}")
         if "not found" in msg or "process \"" in msg:
             logger.info(f"Process {pid} already terminated")
             return {"status": "already_terminated", "pid": pid}
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error killing PID {pid}: {type(e).__name__}: {e}")
         raise
 
 

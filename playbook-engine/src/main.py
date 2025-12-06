@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import sys
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,10 @@ from .api.executions import router as executions_router
 from .utils.config import load_config
 from .utils.logger import logger
 from .messaging.consumer import start_consumer, ingest_file_once
+
+# Fix asyncio subprocess on Windows
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # FastAPI app with background consumer startup.
 
